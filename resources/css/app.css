@@ -1,0 +1,404 @@
+@import 'tailwindcss';
+
+@import "tw-animate-css";
+
+@source '../views';
+@source '../../vendor/laravel/framework/src/Illuminate/Pagination/resources/views/*.blade.php';
+
+@custom-variant dark (&:is(.dark *));
+
+@theme {
+    --font-sans:
+        'Instrument Sans', ui-sans-serif, system-ui, sans-serif,
+        'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol',
+        'Noto Color Emoji';
+
+    --radius-lg: var(--radius);
+    --radius-md: calc(var(--radius) - 2px);
+    --radius-sm: calc(var(--radius) - 4px);
+
+    --color-background: var(--background);
+    --color-foreground: var(--foreground);
+
+    --color-card: var(--card);
+    --color-card-foreground: var(--card-foreground);
+
+    --color-popover: var(--popover);
+    --color-popover-foreground: var(--popover-foreground);
+
+    --color-primary: var(--primary);
+    --color-primary-foreground: var(--primary-foreground);
+
+    --color-secondary: var(--secondary);
+    --color-secondary-foreground: var(--secondary-foreground);
+
+    --color-muted: var(--muted);
+    --color-muted-foreground: var(--muted-foreground);
+
+    --color-accent: var(--accent);
+    --color-accent-foreground: var(--accent-foreground);
+
+    --color-destructive: var(--destructive);
+    --color-destructive-foreground: var(--destructive-foreground);
+
+    --color-border: var(--border);
+    --color-input: var(--input);
+    --color-ring: var(--ring);
+
+    --color-chart-1: var(--chart-1);
+    --color-chart-2: var(--chart-2);
+    --color-chart-3: var(--chart-3);
+    --color-chart-4: var(--chart-4);
+    --color-chart-5: var(--chart-5);
+
+    --color-sidebar: var(--sidebar);
+    --color-sidebar-foreground: var(--sidebar-foreground);
+    --color-sidebar-primary: var(--sidebar-primary);
+    --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+    --color-sidebar-accent: var(--sidebar-accent);
+    --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+    --color-sidebar-border: var(--sidebar-border);
+    --color-sidebar-ring: var(--sidebar-ring);
+
+    --color-brand-green: var(--brand-green);
+    --color-brand-forest: var(--brand-forest);
+    --color-brand-lime: var(--brand-lime);
+    --color-brand-orange: var(--brand-orange);
+    --color-brand-orange-strong: var(--brand-orange-strong);
+}
+
+:root {
+    --brand-forest: #3f8b42;
+    --brand-lime: #80b61f;
+    --brand-green: #038c34;
+    --brand-orange: #f78e2c;
+    --brand-orange-strong: #fe790f;
+
+    --background: #f2f8f2;
+    --foreground: #112d1d;
+    --card: #ffffff;
+    --card-foreground: #112d1d;
+    --popover: #f8fff8;
+    --popover-foreground: #112d1d;
+    --primary: var(--brand-green);
+    --primary-foreground: #f5fff3;
+    --secondary: #e4f1e2;
+    --secondary-foreground: #1f4a2e;
+    --muted: #ecf4ea;
+    --muted-foreground: #4d6d57;
+    --accent: #fff3e7;
+    --accent-foreground: #944d12;
+    --destructive: #cf3b2e;
+    --destructive-foreground: #fff5f4;
+    --border: #c7dccb;
+    --input: #d4e7d8;
+    --ring: var(--brand-lime);
+    --chart-1: var(--brand-green);
+    --chart-2: var(--brand-lime);
+    --chart-3: var(--brand-orange);
+    --chart-4: var(--brand-forest);
+    --chart-5: var(--brand-orange-strong);
+    --radius: 0.75rem;
+    --sidebar: #f2fbf2;
+    --sidebar-foreground: #173624;
+    --sidebar-primary: var(--brand-green);
+    --sidebar-primary-foreground: #f5fff4;
+    --sidebar-accent: #def0de;
+    --sidebar-accent-foreground: #153725;
+    --sidebar-border: #b8d7bf;
+    --sidebar-ring: var(--brand-green);
+
+    --portal-glow-1: rgba(3, 140, 52, 0.24);
+    --portal-glow-2: rgba(128, 182, 31, 0.2);
+    --portal-glow-3: rgba(247, 142, 44, 0.2);
+    --portal-grid-color: rgba(8, 39, 21, 0.08);
+    --portal-panel-bg: rgba(255, 255, 255, 0.74);
+    --portal-panel-border: rgba(63, 139, 66, 0.28);
+    --portal-shadow-soft: 0 22px 58px -34px rgba(3, 140, 52, 0.48);
+}
+
+.dark {
+    --background: #06130d;
+    --foreground: #e6f7e9;
+    --card: #0b2316;
+    --card-foreground: #e6f7e9;
+    --popover: #102a1c;
+    --popover-foreground: #ebfcef;
+    --primary: var(--brand-lime);
+    --primary-foreground: #12280e;
+    --secondary: #153623;
+    --secondary-foreground: #dcf4e1;
+    --muted: #12301f;
+    --muted-foreground: #a4c6ae;
+    --accent: #3b260f;
+    --accent-foreground: #ffd8b6;
+    --destructive: #dc4a3b;
+    --destructive-foreground: #fff2f0;
+    --border: #235233;
+    --input: #1a4029;
+    --ring: var(--brand-orange);
+    --chart-1: #61d17f;
+    --chart-2: var(--brand-lime);
+    --chart-3: var(--brand-orange);
+    --chart-4: #47a15a;
+    --chart-5: var(--brand-orange-strong);
+    --sidebar: #07170f;
+    --sidebar-foreground: #eafbec;
+    --sidebar-primary: var(--brand-lime);
+    --sidebar-primary-foreground: #11220e;
+    --sidebar-accent: #11472c;
+    --sidebar-accent-foreground: #f2fff4;
+    --sidebar-border: #1f5b3a;
+    --sidebar-ring: var(--brand-orange);
+
+    --portal-glow-1: rgba(3, 140, 52, 0.3);
+    --portal-glow-2: rgba(128, 182, 31, 0.24);
+    --portal-glow-3: rgba(254, 121, 15, 0.26);
+    --portal-grid-color: rgba(128, 182, 31, 0.16);
+    --portal-panel-bg: rgba(11, 35, 22, 0.74);
+    --portal-panel-border: rgba(128, 182, 31, 0.3);
+    --portal-shadow-soft: 0 24px 64px -36px rgba(3, 140, 52, 0.66);
+}
+
+@layer base {
+    * {
+        @apply border-border;
+    }
+
+    body {
+        @apply bg-background text-foreground antialiased;
+        position: relative;
+        isolation: isolate;
+        min-height: 100vh;
+        background-image:
+            radial-gradient(circle at 8% 10%, var(--portal-glow-1), transparent 40%),
+            radial-gradient(circle at 88% 14%, var(--portal-glow-3), transparent 35%),
+            radial-gradient(circle at 50% 90%, var(--portal-glow-2), transparent 44%);
+        background-attachment: fixed;
+    }
+
+    body::before {
+        content: '';
+        position: fixed;
+        inset: 0;
+        pointer-events: none;
+        z-index: -2;
+        opacity: 0.45;
+        background-image:
+            linear-gradient(to right, var(--portal-grid-color) 1px, transparent 1px),
+            linear-gradient(to bottom, var(--portal-grid-color) 1px, transparent 1px);
+        background-size: 46px 46px;
+        mask-image: radial-gradient(circle at center, black 22%, transparent 100%);
+    }
+
+    body::after {
+        content: '';
+        position: fixed;
+        inset: -15%;
+        pointer-events: none;
+        z-index: -3;
+        opacity: 0.7;
+        filter: blur(50px);
+        background:
+            radial-gradient(circle at 20% 20%, var(--portal-glow-1), transparent 36%),
+            radial-gradient(circle at 72% 18%, var(--portal-glow-3), transparent 32%),
+            radial-gradient(circle at 58% 82%, var(--portal-glow-2), transparent 40%);
+        animation: portal-aura 18s ease-in-out infinite alternate;
+    }
+}
+
+@layer components {
+    .portal-shell {
+        @apply relative;
+    }
+
+    .portal-main-content {
+        background: var(--portal-panel-bg);
+        border: 1px solid var(--portal-panel-border);
+        box-shadow: var(--portal-shadow-soft);
+        backdrop-filter: blur(12px);
+    }
+
+    .portal-panel {
+        background: var(--portal-panel-bg);
+        border: 1px solid var(--portal-panel-border);
+        box-shadow: var(--portal-shadow-soft);
+        backdrop-filter: blur(14px);
+    }
+
+    .portal-topbar {
+        background: linear-gradient(
+            120deg,
+            color-mix(in srgb, var(--sidebar) 88%, white 12%),
+            color-mix(in srgb, var(--brand-lime) 18%, white 82%),
+            color-mix(in srgb, var(--brand-orange) 16%, white 84%)
+        );
+        backdrop-filter: blur(12px);
+    }
+
+    .portal-sidebar {
+        background: linear-gradient(
+            165deg,
+            color-mix(in srgb, var(--sidebar) 92%, white 8%),
+            color-mix(in srgb, var(--brand-lime) 10%, var(--sidebar) 90%),
+            color-mix(in srgb, var(--brand-green) 12%, white 88%)
+        );
+        border-right: 1px solid var(--sidebar-border);
+    }
+
+    .portal-sidebar-section {
+        @apply relative;
+    }
+
+    .portal-auth-bg {
+        background-image:
+            radial-gradient(circle at 12% 8%, var(--portal-glow-1), transparent 36%),
+            radial-gradient(circle at 87% 12%, var(--portal-glow-3), transparent 32%),
+            linear-gradient(
+                145deg,
+                color-mix(in srgb, var(--background) 80%, white 20%),
+                var(--background),
+                color-mix(in srgb, var(--background) 85%, black 15%)
+            );
+    }
+
+    .portal-auth-card {
+        background: var(--portal-panel-bg);
+        border: 1px solid var(--portal-panel-border);
+        box-shadow: var(--portal-shadow-soft);
+        backdrop-filter: blur(14px);
+    }
+
+    .portal-login-form {
+        position: relative;
+        overflow: hidden;
+        border: 1px solid color-mix(in srgb, var(--brand-green) 30%, white 70%);
+        background: linear-gradient(
+            152deg,
+            color-mix(in srgb, white 92%, var(--brand-lime) 8%),
+            color-mix(in srgb, white 96%, var(--brand-orange) 4%),
+            white
+        );
+        border-radius: 1rem;
+        padding: 1rem;
+        box-shadow: 0 18px 42px -28px rgba(3, 140, 52, 0.58);
+    }
+
+    .portal-login-aurora {
+        position: absolute;
+        inset: -30% -15% auto;
+        height: 72%;
+        pointer-events: none;
+        background:
+            radial-gradient(circle at 24% 25%, rgba(128, 182, 31, 0.3), transparent 40%),
+            radial-gradient(circle at 74% 20%, rgba(247, 142, 44, 0.24), transparent 34%),
+            linear-gradient(
+                115deg,
+                rgba(3, 140, 52, 0.16),
+                rgba(255, 255, 255, 0),
+                rgba(254, 121, 15, 0.12)
+            );
+        filter: blur(10px);
+        animation: portal-login-drift 9s ease-in-out infinite alternate;
+    }
+
+    .portal-login-hud {
+        background:
+            linear-gradient(
+                120deg,
+                color-mix(in srgb, var(--brand-green) 10%, white 90%),
+                color-mix(in srgb, var(--brand-lime) 16%, white 84%)
+            );
+        border: 1px solid color-mix(in srgb, var(--brand-green) 24%, white 76%);
+    }
+
+    .portal-login-ping {
+        width: 0.65rem;
+        height: 0.65rem;
+        border-radius: 999px;
+        background: var(--brand-lime);
+        box-shadow:
+            0 0 0 0 rgba(128, 182, 31, 0.7),
+            0 0 18px rgba(128, 182, 31, 0.58);
+        animation: portal-login-ping 1.8s ease-out infinite;
+    }
+
+    .portal-login-input {
+        box-shadow: 0 14px 28px -24px rgba(3, 140, 52, 0.6);
+    }
+
+    .portal-login-input:focus-visible {
+        box-shadow:
+            0 0 0 3px color-mix(in srgb, var(--brand-lime) 26%, white 74%),
+            0 20px 36px -26px rgba(3, 140, 52, 0.66);
+    }
+
+    .portal-login-button {
+        box-shadow:
+            0 14px 34px -22px rgba(3, 140, 52, 0.72),
+            inset 0 1px 0 rgba(255, 255, 255, 0.34);
+    }
+
+    .portal-login-button:hover {
+        filter: saturate(1.06);
+        transform: translateY(-1px);
+    }
+
+    [data-slot='card'] {
+        background: var(--portal-panel-bg);
+        border-color: var(--portal-panel-border);
+        box-shadow: var(--portal-shadow-soft);
+        backdrop-filter: blur(12px);
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    body::after {
+        animation: none;
+    }
+
+    .portal-login-aurora,
+    .portal-login-ping {
+        animation: none;
+    }
+
+    .portal-login-button:hover {
+        transform: none;
+    }
+}
+
+@keyframes portal-aura {
+    0% {
+        transform: translate3d(0, 0, 0) scale(1);
+    }
+    100% {
+        transform: translate3d(1.5%, -2.5%, 0) scale(1.06);
+    }
+}
+
+@keyframes portal-login-drift {
+    0% {
+        transform: translate3d(-2%, 0, 0) scale(1);
+    }
+    100% {
+        transform: translate3d(2.5%, 3%, 0) scale(1.08);
+    }
+}
+
+@keyframes portal-login-ping {
+    0% {
+        box-shadow:
+            0 0 0 0 rgba(128, 182, 31, 0.55),
+            0 0 18px rgba(128, 182, 31, 0.58);
+    }
+    70% {
+        box-shadow:
+            0 0 0 10px rgba(128, 182, 31, 0),
+            0 0 14px rgba(128, 182, 31, 0.34);
+    }
+    100% {
+        box-shadow:
+            0 0 0 0 rgba(128, 182, 31, 0),
+            0 0 12px rgba(128, 182, 31, 0.2);
+    }
+}

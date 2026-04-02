@@ -1,0 +1,138 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Manual de Usuario - Contratista</title>
+  <style>
+    :root {
+      --brand: #0f766e;
+      --brand-2: #16a34a;
+      --text: #0f172a;
+      --muted: #475569;
+      --line: #dbe2ea;
+      --bg: #ffffff;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: "Segoe UI", Arial, sans-serif;
+      color: var(--text);
+      background: var(--bg);
+      line-height: 1.5;
+      font-size: 12.5px;
+    }
+    .page {
+      max-width: 980px;
+      margin: 0 auto;
+      padding: 32px 32px 48px;
+    }
+    .cover {
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      padding: 20px;
+      background: linear-gradient(135deg, rgba(15,118,110,.1), rgba(22,163,74,.08));
+      margin-bottom: 24px;
+    }
+    h1 { font-size: 28px; margin: 0 0 8px; }
+    h2 {
+      font-size: 19px;
+      margin: 26px 0 10px;
+      padding-bottom: 6px;
+      border-bottom: 1px solid var(--line);
+    }
+    h3 { font-size: 15px; margin: 16px 0 8px; }
+    p { margin: 8px 0; }
+    ol { margin: 8px 0 8px 18px; padding: 0; }
+    li { margin: 3px 0; }
+    .muted { color: var(--muted); }
+    .shot {
+      margin: 10px 0 18px;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      overflow: hidden;
+      break-inside: avoid;
+      page-break-inside: avoid;
+      background: #fff;
+    }
+    .shot img { display: block; width: 100%; height: auto; }
+    .shot .caption {
+      border-top: 1px solid var(--line);
+      padding: 6px 10px;
+      font-size: 11px;
+      color: var(--muted);
+      background: #f8fafc;
+    }
+    @page { size: A4; margin: 12mm; }
+  </style>
+</head>
+<body>
+  <main class="page">
+    <section class="cover">
+      <h1>Manual de Usuario - Contratista</h1>
+      <p class="muted">Portal de Proveedores Greenex</p>
+      <p class="muted">Versión generada: 17-02-2026</p>
+    </section>
+
+    <h2>1. Acceso al Portal</h2>
+    <ol>
+      <li>Ingrese a <strong>https://portal_proveedores.test/login</strong>.</li>
+      <li>Complete correo y contraseña entregados por el administrador.</li>
+      <li>Presione <strong>Ingresar</strong>.</li>
+    </ol>
+    <div class="shot"><img src="./screenshots/common/login.png" alt="Login" /><div class="caption">Pantalla de login</div></div>
+
+    <h2>2. Vista General del Dashboard</h2>
+    <p>El dashboard muestra estado documental, alertas y accesos operativos.</p>
+    <div class="shot"><img src="./screenshots/contratista/01-dashboard.png" alt="Dashboard Contratista" /><div class="caption">Dashboard contratista</div></div>
+
+    <h2>3. Menú Disponible para Contratista</h2>
+    <ol>
+      <li>Dashboard</li>
+      <li>Configuración: Faenas (solo lectura operativa según permisos)</li>
+      <li>Contratistas: Personal, Estados de Pago, Asistencia</li>
+      <li>Documentación: Centro de Carga y Centro Contratistas</li>
+    </ol>
+
+    <h2>4. Configuración</h2>
+    <h3>4.1 Faenas</h3>
+    <p>Consulta de faenas asignadas y contexto operativo.</p>
+    <div class="shot"><img src="./screenshots/contratista/02-faenas.png" alt="Faenas" /><div class="caption">Faenas</div></div>
+
+    <h2>5. Gestión Operativa</h2>
+    <h3>5.1 Personal</h3>
+    <p>Administración del personal propio del contratista.</p>
+    <div class="shot"><img src="./screenshots/contratista/03-personal.png" alt="Personal" /><div class="caption">Personal</div></div>
+
+    <h3>5.2 Estados de Pago</h3>
+    <p>Seguimiento de estados de pago.</p>
+    <div class="shot"><img src="./screenshots/contratista/04-estados-pago.png" alt="Estados de Pago" /><div class="caption">Estados de pago</div></div>
+
+    <h3>5.3 Asistencia</h3>
+    <p>Control de asistencia de trabajadores.</p>
+    <div class="shot"><img src="./screenshots/contratista/05-asistencia.png" alt="Asistencia" /><div class="caption">Asistencia</div></div>
+
+    <h2>6. Documentación</h2>
+    <h3>6.1 Centro de Carga</h3>
+    <p>Carga de documentos de trabajadores con matching asistido.</p>
+    <div class="shot"><img src="./screenshots/contratista/06-centro-carga.png" alt="Centro de Carga" /><div class="caption">Centro de carga trabajadores</div></div>
+
+    <h3>6.2 Centro Contratistas</h3>
+    <p>Carga de documentación de la empresa contratista.</p>
+    <div class="shot"><img src="./screenshots/contratista/07-centro-carga-contratistas.png" alt="Centro Contratistas" /><div class="caption">Centro de carga contratistas</div></div>
+
+    <h3>6.3 Expediente Documental</h3>
+    <p>Consulta de documentos cargados, estados y filtros.</p>
+    <div class="shot"><img src="./screenshots/contratista/08-documentos.png" alt="Documentos" /><div class="caption">Expediente documental</div></div>
+
+    <h2>7. Flujo Recomendado de Operación</h2>
+    <ol>
+      <li>Mantener personal actualizado.</li>
+      <li>Cargar documentos en Centro de Carga (trabajadores).</li>
+      <li>Cargar documentos corporativos en Centro Contratistas.</li>
+      <li>Revisar estado en Expediente Documental.</li>
+      <li>Corregir observaciones o rechazos para mantener cumplimiento.</li>
+    </ol>
+  </main>
+</body>
+</html>
