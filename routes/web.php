@@ -55,6 +55,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::resource('faenas', \App\Http\Controllers\FaenaController::class);
     Route::post('faenas/{faena}/trabajadores', [\App\Http\Controllers\FaenaController::class, 'assignTrabajador'])->name('faenas.assign');
     Route::delete('faenas/{faena}/trabajadores/{trabajador}', [\App\Http\Controllers\FaenaController::class, 'unassignTrabajador'])->name('faenas.unassign');
+    Route::post('faenas/{faena}/contratistas', [\App\Http\Controllers\FaenaController::class, 'storeContratista'])->name('faenas.contratistas.store');
+    Route::delete('faenas/{faena}/contratistas/{contratista}', [\App\Http\Controllers\FaenaController::class, 'destroyContratista'])->name('faenas.contratistas.destroy');
 
     // Gestión de documentos
     Route::resource('documentos', \App\Http\Controllers\DocumentoController::class)->only(['index', 'create', 'store']);

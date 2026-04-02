@@ -26,3 +26,18 @@ yarn-error.log
 /.nova
 /.vscode
 /.zed
+.github/workflows/tests.yml
+.gitignore
+.editorconfig
+.gitignore
+COTIZACIONES_FONASA DICIEMBRE LAS ORQUIDEAS.pdf
+opencode.json
+package-lock.json
+phpunit.xml
+toArray()
+toArray())
+.claude/settings.local.json
+.env.example
+.github/workflows/lint.yml
+.gemini/settings.json
+package-lock.json

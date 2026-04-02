@@ -1,6 +1,12 @@
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import {
+    Card,
+    CardContent,
+    CardDescription,
+    CardHeader,
+    CardTitle,
+} from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import {
     Table,
@@ -44,6 +50,11 @@ interface Faena {
     fecha_inicio: string | null;
     fecha_termino: string | null;
     trabajadores: Trabajador[];
+    contratistas?: Array<{
+        id: number;
+        razon_social: string;
+        nombre_fantasia: string | null;
+    }>;
 }
 
 interface TrabajadorDisponible {
@@ -56,6 +67,12 @@ interface TrabajadorDisponible {
 interface Props {
     faena: Faena;
     trabajadoresDisponibles: TrabajadorDisponible[];
+    contratistasDisponibles: {
+        id: number;
+        razon_social: string;
+        nombre_fantasia: string | null;
+        nombre_mostrado: string;
+    }[];
 }
 
 const breadcrumbs = (id: number): BreadcrumbItem[] => [
@@ -76,24 +93,61 @@ const estadoBadgeVariant = (estado: Faena['estado']) => {
     }
 };
 
-export default function FaenaShow({ faena, trabajadoresDisponibles }: Props) {
+export default function FaenaShow({
+    faena,
+    trabajadoresDisponibles,
+    contratistasDisponibles,
+}: Props) {
     const page = usePage<SharedData>();
     const canEditFaena = page.props.auth?.user?.isAdmin ?? false;
 
     const { data, setData, post, processing, errors } = useForm({
         trabajador_id: trabajadoresDisponibles[0]?.id ?? '',
     });
+    const {
+        data: participanteData,
+        setData: setParticipanteData,
+        post: postParticipante,
+        processing: participanteProcessing,
+        errors: participanteErrors,
+    } = useForm({
+        contratista_id: contratistasDisponibles[0]?.id?.toString() ?? '',
+    });
 
     useEffect(() => {
         if (
             data.trabajador_id !== '' &&
-            trabajadoresDisponibles.some((trabajador) => trabajador.id === data.trabajador_id)
+            trabajadoresDisponibles.some(
+                (trabajador) => trabajador.id === data.trabajador_id,
+            )
         ) {
             return;
         }
 
         setData('trabajador_id', trabajadoresDisponibles[0]?.id ?? '');
     }, [data.trabajador_id, setData, trabajadoresDisponibles]);
+
+    useEffect(() => {
+        if (
+            participanteData.contratista_id !== '' &&
+            contratistasDisponibles.some(
+                (contratista) =>
+                    contratista.id.toString() ===
+                    participanteData.contratista_id,
+            )
+        ) {
+            return;
+        }
+
+        setParticipanteData(
+            'contratista_id',
+            contratistasDisponibles[0]?.id?.toString() ?? '',
+        );
+    }, [
+        contratistasDisponibles,
+        participanteData.contratista_id,
+        setParticipanteData,
+    ]);
 
     const submitAsignacion = (event: FormEvent<HTMLFormElement>) => {
         event.preventDefault();
@@ -108,6 +162,19 @@ export default function FaenaShow({ faena, trabajadoresDisponibles }: Props) {
         });
     };
 
+    const submitParticipante = (event: FormEvent<HTMLFormElement>) => {
+        event.preventDefault();
+        postParticipante(`/faenas/${faena.id}/contratistas`, {
+            preserveScroll: true,
+        });
+    };
+
+    const removerParticipante = (contratistaId: number): void => {
+        router.delete(`/faenas/${faena.id}/contratistas/${contratistaId}`, {
+            preserveScroll: true,
+        });
+    };
+
     return (
         <>
             <Head title={`Faena ${faena.nombre}`} />
@@ -115,8 +182,12 @@ export default function FaenaShow({ faena, trabajadoresDisponibles }: Props) {
             <div className="space-y-6">
                 <div className="flex items-center justify-between">
                     <div>
-                        <h1 className="text-3xl font-bold tracking-tight">{faena.nombre}</h1>
-                        <p className="text-muted-foreground">Código: {faena.codigo}</p>
+                        <h1 className="text-3xl font-bold tracking-tight">
+                            {faena.nombre}
+                        </h1>
+                        <p className="text-muted-foreground">
+                            Código: {faena.codigo}
+                        </p>
                     </div>
                     <div className="flex gap-2">
                         <Button variant="outline" asChild>
@@ -124,7 +195,9 @@ export default function FaenaShow({ faena, trabajadoresDisponibles }: Props) {
                         </Button>
                         {canEditFaena && (
                             <Button asChild>
-                                <Link href={`/faenas/${faena.id}/edit`}>Editar</Link>
+                                <Link href={`/faenas/${faena.id}/edit`}>
+                                    Editar
+                                </Link>
                             </Button>
                         )}
                     </div>
@@ -133,40 +206,66 @@ export default function FaenaShow({ faena, trabajadoresDisponibles }: Props) {
                 <Card>
                     <CardHeader>
                         <CardTitle>Información General</CardTitle>
-                        <CardDescription>Detalle operativo de la faena.</CardDescription>
+                        <CardDescription>
+                            Detalle operativo de la faena.
+                        </CardDescription>
                     </CardHeader>
                     <CardContent className="grid gap-4 md:grid-cols-2">
                         <div>
-                            <p className="text-sm text-muted-foreground">Tipo de faena</p>
-                            <p className="font-medium">{faena.tipo_faena?.nombre ?? '—'}</p>
+                            <p className="text-sm text-muted-foreground">
+                                Tipo de faena
+                            </p>
+                            <p className="font-medium">
+                                {faena.tipo_faena?.nombre ?? '—'}
+                            </p>
                         </div>
                         <div>
-                            <p className="text-sm text-muted-foreground">Estado</p>
-                            <Badge variant={estadoBadgeVariant(faena.estado)}>{faena.estado}</Badge>
+                            <p className="text-sm text-muted-foreground">
+                                Estado
+                            </p>
+                            <Badge variant={estadoBadgeVariant(faena.estado)}>
+                                {faena.estado}
+                            </Badge>
                         </div>
                         <div>
-                            <p className="text-sm text-muted-foreground">Ubicación</p>
-                            <p className="font-medium">{faena.ubicacion ?? '—'}</p>
+                            <p className="text-sm text-muted-foreground">
+                                Ubicación
+                            </p>
+                            <p className="font-medium">
+                                {faena.ubicacion ?? '—'}
+                            </p>
                         </div>
                         <div>
-                            <p className="text-sm text-muted-foreground">Fecha inicio</p>
+                            <p className="text-sm text-muted-foreground">
+                                Fecha inicio
+                            </p>
                             <p className="font-medium">
                                 {faena.fecha_inicio
-                                    ? new Date(faena.fecha_inicio).toLocaleDateString('es-CL')
+                                    ? new Date(
+                                          faena.fecha_inicio,
+                                      ).toLocaleDateString('es-CL')
                                     : '—'}
                             </p>
                         </div>
                         <div>
-                            <p className="text-sm text-muted-foreground">Fecha término</p>
+                            <p className="text-sm text-muted-foreground">
+                                Fecha término
+                            </p>
                             <p className="font-medium">
                                 {faena.fecha_termino
-                                    ? new Date(faena.fecha_termino).toLocaleDateString('es-CL')
+                                    ? new Date(
+                                          faena.fecha_termino,
+                                      ).toLocaleDateString('es-CL')
                                     : '—'}
                             </p>
                         </div>
                         <div className="md:col-span-2">
-                            <p className="text-sm text-muted-foreground">Descripción</p>
-                            <p className="font-medium">{faena.descripcion ?? '—'}</p>
+                            <p className="text-sm text-muted-foreground">
+                                Descripción
+                            </p>
+                            <p className="font-medium">
+                                {faena.descripcion ?? '—'}
+                            </p>
                         </div>
                     </CardContent>
                 </Card>
@@ -175,32 +274,56 @@ export default function FaenaShow({ faena, trabajadoresDisponibles }: Props) {
                     <CardHeader>
                         <CardTitle>Asignar Trabajador</CardTitle>
                         <CardDescription>
-                            Selecciona un trabajador activo para asignarlo a esta faena.
+                            Selecciona un trabajador activo para asignarlo a
+                            esta faena.
                         </CardDescription>
                     </CardHeader>
                     <CardContent>
-                        <form onSubmit={submitAsignacion} className="flex flex-col gap-3 md:flex-row md:items-end">
+                        <form
+                            onSubmit={submitAsignacion}
+                            className="flex flex-col gap-3 md:flex-row md:items-end"
+                        >
                             <div className="flex-1 space-y-2">
-                                <Label htmlFor="trabajador_id">Trabajador disponible</Label>
+                                <Label htmlFor="trabajador_id">
+                                    Trabajador disponible
+                                </Label>
                                 <select
                                     id="trabajador_id"
-                                    className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                                    className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm shadow-sm focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
                                     value={data.trabajador_id}
-                                    onChange={(event) => setData('trabajador_id', event.target.value)}
-                                    disabled={trabajadoresDisponibles.length === 0}
+                                    onChange={(event) =>
+                                        setData(
+                                            'trabajador_id',
+                                            event.target.value,
+                                        )
+                                    }
+                                    disabled={
+                                        trabajadoresDisponibles.length === 0
+                                    }
                                 >
                                     {trabajadoresDisponibles.length === 0 ? (
-                                        <option value="">No hay trabajadores disponibles</option>
+                                        <option value="">
+                                            No hay trabajadores disponibles
+                                        </option>
                                     ) : (
-                                        trabajadoresDisponibles.map((trabajador) => (
-                                            <option key={trabajador.id} value={trabajador.id}>
-                                                {trabajador.documento} · {trabajador.nombre} {trabajador.apellido}
-                                            </option>
-                                        ))
+                                        trabajadoresDisponibles.map(
+                                            (trabajador) => (
+                                                <option
+                                                    key={trabajador.id}
+                                                    value={trabajador.id}
+                                                >
+                                                    {trabajador.documento} ·{' '}
+                                                    {trabajador.nombre}{' '}
+                                                    {trabajador.apellido}
+                                                </option>
+                                            ),
+                                        )
                                     )}
                                 </select>
                                 {errors.trabajador_id && (
-                                    <p className="text-sm text-destructive">{errors.trabajador_id}</p>
+                                    <p className="text-sm text-destructive">
+                                        {errors.trabajador_id}
+                                    </p>
                                 )}
                             </div>
                             <Button
@@ -219,6 +342,132 @@ export default function FaenaShow({ faena, trabajadoresDisponibles }: Props) {
 
                 <Card>
                     <CardHeader>
+                        <CardTitle>Contratistas Participantes</CardTitle>
+                        <CardDescription>
+                            Empresas habilitadas para operar y mover personal en
+                            esta faena.
+                        </CardDescription>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                        {canEditFaena && (
+                            <form
+                                onSubmit={submitParticipante}
+                                className="flex flex-col gap-3 md:flex-row md:items-end"
+                            >
+                                <div className="flex-1 space-y-2">
+                                    <Label htmlFor="contratista_id">
+                                        Agregar contratista
+                                    </Label>
+                                    <select
+                                        id="contratista_id"
+                                        className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm shadow-sm focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+                                        value={participanteData.contratista_id}
+                                        onChange={(event) =>
+                                            setParticipanteData(
+                                                'contratista_id',
+                                                event.target.value,
+                                            )
+                                        }
+                                        disabled={
+                                            contratistasDisponibles.length === 0
+                                        }
+                                    >
+                                        {contratistasDisponibles.length ===
+                                        0 ? (
+                                            <option value="">
+                                                No hay contratistas disponibles
+                                            </option>
+                                        ) : (
+                                            contratistasDisponibles.map(
+                                                (contratista) => (
+                                                    <option
+                                                        key={contratista.id}
+                                                        value={contratista.id.toString()}
+                                                    >
+                                                        {
+                                                            contratista.nombre_mostrado
+                                                        }
+                                                    </option>
+                                                ),
+                                            )
+                                        )}
+                                    </select>
+                                    {participanteErrors.contratista_id && (
+                                        <p className="text-sm text-destructive">
+                                            {participanteErrors.contratista_id}
+                                        </p>
+                                    )}
+                                </div>
+                                <Button
+                                    type="submit"
+                                    disabled={
+                                        participanteProcessing ||
+                                        contratistasDisponibles.length === 0 ||
+                                        !participanteData.contratista_id
+                                    }
+                                >
+                                    Agregar
+                                </Button>
+                            </form>
+                        )}
+
+                        <Table>
+                            <TableHeader>
+                                <TableRow>
+                                    <TableHead>Contratista</TableHead>
+                                    <TableHead>Razón social</TableHead>
+                                    <TableHead className="text-right">
+                                        Acciones
+                                    </TableHead>
+                                </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                                {faena.contratistas?.length === 0 ? (
+                                    <TableRow>
+                                        <TableCell
+                                            colSpan={3}
+                                            className="text-center text-muted-foreground"
+                                        >
+                                            No hay contratistas participantes.
+                                        </TableCell>
+                                    </TableRow>
+                                ) : (
+                                    faena.contratistas?.map((contratista) => (
+                                        <TableRow key={contratista.id}>
+                                            <TableCell className="font-medium">
+                                                {contratista.nombre_fantasia ??
+                                                    '—'}
+                                            </TableCell>
+                                            <TableCell>
+                                                {contratista.razon_social}
+                                            </TableCell>
+                                            <TableCell className="text-right">
+                                                {canEditFaena ? (
+                                                    <Button
+                                                        variant="outline"
+                                                        size="sm"
+                                                        onClick={() =>
+                                                            removerParticipante(
+                                                                contratista.id,
+                                                            )
+                                                        }
+                                                    >
+                                                        Quitar
+                                                    </Button>
+                                                ) : (
+                                                    '—'
+                                                )}
+                                            </TableCell>
+                                        </TableRow>
+                                    ))
+                                )}
+                            </TableBody>
+                        </Table>
+                    </CardContent>
+                </Card>
+
+                <Card>
+                    <CardHeader>
                         <CardTitle>Trabajadores Asignados</CardTitle>
                         <CardDescription>
                             Personal activo vinculado a esta faena.
@@ -232,27 +481,36 @@ export default function FaenaShow({ faena, trabajadoresDisponibles }: Props) {
                                     <TableHead>Nombre</TableHead>
                                     <TableHead>Estado</TableHead>
                                     <TableHead>Fecha Asignación</TableHead>
-                                    <TableHead className="text-right">Acciones</TableHead>
+                                    <TableHead className="text-right">
+                                        Acciones
+                                    </TableHead>
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
                                 {faena.trabajadores.length === 0 ? (
                                     <TableRow>
-                                        <TableCell colSpan={5} className="text-center text-muted-foreground">
+                                        <TableCell
+                                            colSpan={5}
+                                            className="text-center text-muted-foreground"
+                                        >
                                             No hay trabajadores asignados.
                                         </TableCell>
                                     </TableRow>
                                 ) : (
                                     faena.trabajadores.map((trabajador) => (
                                         <TableRow key={trabajador.id}>
-                                            <TableCell className="font-mono">{trabajador.documento}</TableCell>
+                                            <TableCell className="font-mono">
+                                                {trabajador.documento}
+                                            </TableCell>
                                             <TableCell>
-                                                {trabajador.nombre} {trabajador.apellido}
+                                                {trabajador.nombre}{' '}
+                                                {trabajador.apellido}
                                             </TableCell>
                                             <TableCell>
                                                 <Badge
                                                     variant={
-                                                        trabajador.estado === 'activo'
+                                                        trabajador.estado ===
+                                                        'activo'
                                                             ? 'default'
                                                             : 'secondary'
                                                     }
@@ -261,17 +519,24 @@ export default function FaenaShow({ faena, trabajadoresDisponibles }: Props) {
                                                 </Badge>
                                             </TableCell>
                                             <TableCell>
-                                                {trabajador.pivot?.fecha_asignacion
+                                                {trabajador.pivot
+                                                    ?.fecha_asignacion
                                                     ? new Date(
                                                           trabajador.pivot.fecha_asignacion,
-                                                      ).toLocaleDateString('es-CL')
+                                                      ).toLocaleDateString(
+                                                          'es-CL',
+                                                      )
                                                     : '—'}
                                             </TableCell>
                                             <TableCell className="text-right">
                                                 <Button
                                                     variant="outline"
                                                     size="sm"
-                                                    onClick={() => desasignarTrabajador(trabajador.id)}
+                                                    onClick={() =>
+                                                        desasignarTrabajador(
+                                                            trabajador.id,
+                                                        )
+                                                    }
                                                 >
                                                     Desasignar
                                                 </Button>

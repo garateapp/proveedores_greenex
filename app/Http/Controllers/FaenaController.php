@@ -3,9 +3,12 @@
 namespace App\Http\Controllers;
 
 use App\Http\Requests\FaenaRequest;
+use App\Models\Contratista;
 use App\Models\Faena;
 use App\Models\TipoFaena;
 use App\Models\Trabajador;
+use App\Models\User;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -88,6 +91,7 @@ class FaenaController extends Controller
     public function show(Request $request, Faena $faena): Response
     {
         $user = $request->user();
+        $this->authorizeFaenaAccess($user, $faena);
 
         $faena->load(['trabajadores' => function ($query) {
             $query->withPivot('fecha_asignacion', 'fecha_desasignacion')
@@ -95,7 +99,7 @@ class FaenaController extends Controller
                 ->where('estado', 'activo')
                 ->orderBy('nombre')
                 ->orderBy('apellido');
-        }, 'tipoFaena']);
+        }, 'tipoFaena', 'contratistas:id,razon_social,nombre_fantasia']);
 
         $assignedTrabajadorIds = $faena->trabajadores->pluck('id');
 
@@ -118,9 +122,26 @@ class FaenaController extends Controller
                 'apellido' => $trabajador->apellido,
             ]);
 
+        $contratistasDisponibles = collect();
+        if ($user->isAdmin()) {
+            $participatingContratistaIds = $faena->contratistas->pluck('id');
+            $contratistasDisponibles = Contratista::query()
+                ->where('estado', 'activo')
+                ->whereNotIn('id', $participatingContratistaIds)
+                ->orderBy('razon_social')
+                ->get(['id', 'razon_social', 'nombre_fantasia'])
+                ->map(fn (Contratista $contratista) => [
+                    'id' => $contratista->id,
+                    'razon_social' => $contratista->razon_social,
+                    'nombre_fantasia' => $contratista->nombre_fantasia,
+                    'nombre_mostrado' => $contratista->nombre_fantasia ?: $contratista->razon_social,
+                ]);
+        }
+
         return Inertia::render('faenas/show', [
             'faena' => $faena,
             'trabajadoresDisponibles' => $trabajadoresDisponibles,
+            'contratistasDisponibles' => $contratistasDisponibles,
         ]);
     }
 
@@ -172,7 +193,7 @@ class FaenaController extends Controller
     /**
      * Assign trabajador to faena.
      */
-    public function assignTrabajador(Request $request, Faena $faena)
+    public function assignTrabajador(Request $request, Faena $faena): RedirectResponse
     {
         $user = $request->user();
 
@@ -190,7 +211,14 @@ class FaenaController extends Controller
             abort(403);
         }
 
-        // Check if already assigned
+        if (! $user->isAdmin() && ! $this->faenaHasContratistaParticipant($faena, (int) $trabajador->contratista_id)) {
+            abort(403);
+        }
+
+        if ($user->isAdmin()) {
+            $faena->contratistas()->syncWithoutDetaching([(int) $trabajador->contratista_id]);
+        }
+
         if (
             $faena->trabajadores()
                 ->where('trabajador_id', $trabajador->id)
@@ -223,7 +251,7 @@ class FaenaController extends Controller
     /**
      * Unassign trabajador from faena.
      */
-    public function unassignTrabajador(Request $request, Faena $faena, string $trabajadorId)
+    public function unassignTrabajador(Request $request, Faena $faena, string $trabajadorId): RedirectResponse
     {
         $user = $request->user();
 
@@ -236,13 +264,81 @@ class FaenaController extends Controller
             abort(403);
         }
 
+        if (! $user->isAdmin() && ! $this->faenaHasContratistaParticipant($faena, (int) $trabajador->contratista_id)) {
+            abort(403);
+        }
+
         $faena->trabajadores()->updateExistingPivot($trabajadorId, [
             'fecha_desasignacion' => now(),
         ]);
 
-        // Optionally detach instead of updating
-        // $faena->trabajadores()->detach($trabajadorId);
-
         return back()->with('success', 'Trabajador desasignado exitosamente.');
+    }
+
+    /**
+     * Add a contratista participant to a faena.
+     */
+    public function storeContratista(Request $request, Faena $faena): RedirectResponse
+    {
+        if (! $request->user()->isAdmin()) {
+            abort(403);
+        }
+
+        $validated = $request->validate([
+            'contratista_id' => ['required', 'exists:contratistas,id'],
+        ]);
+
+        $faena->contratistas()->syncWithoutDetaching([(int) $validated['contratista_id']]);
+
+        return back()->with('success', 'Contratista agregado a la faena exitosamente.');
+    }
+
+    /**
+     * Remove a contratista participant from a faena.
+     */
+    public function destroyContratista(Request $request, Faena $faena, Contratista $contratista): RedirectResponse
+    {
+        if (! $request->user()->isAdmin()) {
+            abort(403);
+        }
+
+        $hasActiveWorkers = $faena->trabajadores()
+            ->wherePivotNull('fecha_desasignacion')
+            ->where('contratista_id', $contratista->id)
+            ->exists();
+
+        if ($hasActiveWorkers) {
+            return back()->withErrors([
+                'contratista_id' => 'No se puede quitar el contratista porque tiene trabajadores activos en esta faena.',
+            ]);
+        }
+
+        $faena->contratistas()->detach($contratista->id);
+
+        return back()->with('success', 'Contratista removido de la faena exitosamente.');
+    }
+
+    /**
+     * Ensure that the current user can operate on this faena.
+     */
+    private function authorizeFaenaAccess(User $user, Faena $faena): void
+    {
+        if ($user->isAdmin()) {
+            return;
+        }
+
+        if ($user->contratista_id === null || ! $this->faenaHasContratistaParticipant($faena, $user->contratista_id)) {
+            abort(403);
+        }
+    }
+
+    /**
+     * Check whether a contratista participates in the given faena.
+     */
+    private function faenaHasContratistaParticipant(Faena $faena, int $contratistaId): bool
+    {
+        return $faena->contratistas()
+            ->where('contratistas.id', $contratistaId)
+            ->exists();
     }
 }

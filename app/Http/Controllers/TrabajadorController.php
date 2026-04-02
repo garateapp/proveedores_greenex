@@ -3,8 +3,10 @@
 namespace App\Http\Controllers;
 
 use App\Models\Contratista;
+use App\Models\Faena;
 use App\Models\TipoDocumento;
 use App\Models\Trabajador;
+use App\Models\User;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -202,7 +204,6 @@ class TrabajadorController extends Controller
     {
         $trabajador = Trabajador::with('documentosTrabajador.tipoDocumento')->findOrFail($id);
 
-        // Check access
         $user = request()->user();
         if (! $user->isAdmin() && $trabajador->contratista_id !== $user->contratista_id) {
             abort(403);
@@ -229,10 +230,41 @@ class TrabajadorController extends Controller
         $tiposDocumentos = $tiposDocumentosQuery
             ->get(['id', 'nombre', 'codigo', 'formatos_permitidos', 'tamano_maximo_kb']);
 
+        $contratistas = [];
+        if ($user->isAdmin()) {
+            $contratistas = Contratista::query()
+                ->where('estado', 'activo')
+                ->orderBy('razon_social')
+                ->get(['id', 'razon_social'])
+                ->map(fn (Contratista $contratista) => [
+                    'value' => $contratista->id,
+                    'label' => $contratista->razon_social,
+                ]);
+        }
+
+        $faenasDisponibles = $this->resolveAvailableFaenasForUser($user, $trabajador->contratista_id)
+            ->map(fn (Faena $faena) => [
+                'id' => $faena->id,
+                'nombre' => $faena->nombre,
+                'codigo' => $faena->codigo,
+                'tipo_faena' => $faena->tipoFaena?->nombre,
+            ])
+            ->values();
+
+        $faenaIdsAsignadas = $trabajador->faenas()
+            ->wherePivotNull('fecha_desasignacion')
+            ->pluck('faenas.id')
+            ->map(fn ($faenaId) => (int) $faenaId)
+            ->values()
+            ->all();
+
         return Inertia::render('trabajadores/edit', [
             'trabajador' => $trabajador,
             'tiposDocumentos' => $tiposDocumentos,
             'sinFaenaActiva' => $tipoFaenaIds->isEmpty(),
+            'contratistas' => $contratistas,
+            'faenasDisponibles' => $faenasDisponibles,
+            'faenaIdsAsignadas' => $faenaIdsAsignadas,
             'documentosTrabajador' => $trabajador->documentosTrabajador->map(fn ($documento) => [
                 'id' => $documento->id,
                 'tipo_documento_id' => $documento->tipo_documento_id,
@@ -250,7 +282,6 @@ class TrabajadorController extends Controller
     {
         $trabajador = Trabajador::findOrFail($id);
 
-        // Check access
         $user = $request->user();
         if (! $user->isAdmin() && $trabajador->contratista_id !== $user->contratista_id) {
             abort(403);
@@ -264,9 +295,36 @@ class TrabajadorController extends Controller
             'estado' => ['required', 'in:activo,inactivo'],
             'fecha_ingreso' => ['nullable', 'date'],
             'observaciones' => ['nullable', 'string'],
+            'contratista_id' => ['nullable', 'exists:contratistas,id'],
+            'faena_ids' => ['nullable', 'array'],
+            'faena_ids.*' => ['integer', 'exists:faenas,id'],
         ]);
 
-        $trabajador->update($validated);
+        $targetContratistaId = $trabajador->contratista_id;
+        if ($user->isAdmin()) {
+            $targetContratistaId = (int) ($validated['contratista_id'] ?? $trabajador->contratista_id);
+        }
+
+        if (! $user->isAdmin()) {
+            $targetContratistaId = (int) $user->contratista_id;
+        }
+
+        $trabajador->update([
+            'nombre' => $validated['nombre'],
+            'apellido' => $validated['apellido'],
+            'email' => $validated['email'],
+            'telefono' => $validated['telefono'],
+            'estado' => $validated['estado'],
+            'fecha_ingreso' => $validated['fecha_ingreso'],
+            'observaciones' => $validated['observaciones'],
+            'contratista_id' => $targetContratistaId,
+        ]);
+
+        $faenaIds = collect($validated['faena_ids'] ?? [])
+            ->map(fn ($faenaId) => (int) $faenaId)
+            ->values();
+
+        $this->syncTrabajadorFaenas($user, $trabajador, $targetContratistaId, $faenaIds->all());
 
         return redirect()->route('trabajadores.index')->with('success', 'Trabajador actualizado exitosamente.');
     }
@@ -310,5 +368,106 @@ class TrabajadorController extends Controller
         ]);
 
         return back()->with('success', 'Estado actualizado');
+    }
+
+    /**
+     * @return \Illuminate\Database\Eloquent\Collection<int, Faena>
+     */
+    private function resolveAvailableFaenasForUser(User $user, int $contratistaId)
+    {
+        $query = Faena::query()
+            ->active()
+            ->with('tipoFaena:id,nombre')
+            ->orderBy('nombre');
+
+        if (! $user->isAdmin()) {
+            $query->whereHas('contratistas', function ($faenaQuery) use ($contratistaId) {
+                $faenaQuery->where('contratistas.id', $contratistaId);
+            });
+        }
+
+        return $query->get(['faenas.id', 'faenas.nombre', 'faenas.codigo', 'faenas.tipo_faena_id']);
+    }
+
+    /**
+     * Sync active faena assignments for a trabajador.
+     *
+     * @param  array<int, int>  $selectedFaenaIds
+     */
+    private function syncTrabajadorFaenas(User $user, Trabajador $trabajador, int $contratistaId, array $selectedFaenaIds): void
+    {
+        $selectedFaenas = Faena::query()
+            ->active()
+            ->whereIn('id', $selectedFaenaIds)
+            ->get();
+
+        if ($selectedFaenas->count() !== count($selectedFaenaIds)) {
+            abort(403);
+        }
+
+        if (! $user->isAdmin()) {
+            $isAllowed = Faena::query()
+                ->active()
+                ->whereIn('id', $selectedFaenaIds)
+                ->whereHas('contratistas', function ($query) use ($contratistaId) {
+                    $query->where('contratistas.id', $contratistaId);
+                })
+                ->count() === count($selectedFaenaIds);
+
+            if (! $isAllowed) {
+                abort(403);
+            }
+        }
+
+        if ($user->isAdmin() && ! empty($selectedFaenaIds)) {
+            foreach ($selectedFaenaIds as $faenaId) {
+                Faena::query()->findOrFail($faenaId)
+                    ->contratistas()
+                    ->syncWithoutDetaching([$contratistaId]);
+            }
+        }
+
+        $activeFaenaIds = $trabajador->faenas()
+            ->wherePivotNull('fecha_desasignacion')
+            ->pluck('faenas.id')
+            ->map(fn ($faenaId) => (int) $faenaId)
+            ->all();
+
+        $faenaIdsToUnassign = array_diff($activeFaenaIds, $selectedFaenaIds);
+        foreach ($faenaIdsToUnassign as $faenaIdToUnassign) {
+            $trabajador->faenas()->updateExistingPivot($faenaIdToUnassign, [
+                'fecha_desasignacion' => now(),
+            ]);
+        }
+
+        foreach ($selectedFaenaIds as $selectedFaenaId) {
+            $alreadyAssigned = $trabajador->faenas()
+                ->where('faena_id', $selectedFaenaId)
+                ->wherePivotNull('fecha_desasignacion')
+                ->exists();
+
+            if ($alreadyAssigned) {
+                continue;
+            }
+
+            $wasAssignedBefore = $trabajador->faenas()
+                ->where('faena_id', $selectedFaenaId)
+                ->wherePivotNotNull('fecha_desasignacion')
+                ->exists();
+
+            if ($wasAssignedBefore) {
+                $trabajador->faenas()->updateExistingPivot($selectedFaenaId, [
+                    'fecha_asignacion' => now(),
+                    'fecha_desasignacion' => null,
+                ]);
+
+                continue;
+            }
+
+            $trabajador->faenas()->attach($selectedFaenaId, [
+                'fecha_asignacion' => now(),
+                'fecha_desasignacion' => null,
+            ]);
+        }
     }
 }

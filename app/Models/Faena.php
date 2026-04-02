@@ -54,6 +54,15 @@ class Faena extends Model
     }
 
     /**
+     * Get the contratistas participating in this faena.
+     */
+    public function contratistas(): BelongsToMany
+    {
+        return $this->belongsToMany(Contratista::class, 'faena_contratista')
+            ->withTimestamps();
+    }
+
+    /**
      * Check if faena is active.
      */
     public function isActive(): bool

@@ -138,6 +138,10 @@ class FaenaShowPageTest extends TestCase
             'trabajador_id' => $trabajador->id,
             'fecha_desasignacion' => null,
         ]);
+        $this->assertDatabaseHas('faena_contratista', [
+            'faena_id' => $faena->id,
+            'contratista_id' => $contratista->id,
+        ]);
 
         $this->actingAs($admin)
             ->from(route('faenas.show', $faena))
@@ -148,6 +152,108 @@ class FaenaShowPageTest extends TestCase
             'faena_id' => $faena->id,
             'trabajador_id' => $trabajador->id,
             'fecha_desasignacion' => null,
+        ]);
+    }
+
+    public function test_admin_can_add_and_remove_a_contratista_participant_in_faena(): void
+    {
+        $admin = User::factory()->create([
+            'role' => UserRole::Admin,
+        ]);
+        $contratista = Contratista::factory()->create();
+        $tipoFaena = TipoFaena::create([
+            'nombre' => 'Packing',
+            'codigo' => 'PACKING',
+            'descripcion' => 'Procesos de packing',
+            'activo' => true,
+        ]);
+        $faena = Faena::create([
+            'tipo_faena_id' => $tipoFaena->id,
+            'nombre' => 'Faena Participantes',
+            'codigo' => 'FAENA_PART',
+            'descripcion' => null,
+            'ubicacion' => null,
+            'estado' => 'activa',
+            'fecha_inicio' => now()->toDateString(),
+            'fecha_termino' => null,
+        ]);
+
+        $this->actingAs($admin)
+            ->from(route('faenas.show', $faena))
+            ->post(route('faenas.contratistas.store', $faena), [
+                'contratista_id' => $contratista->id,
+            ])
+            ->assertRedirect(route('faenas.show', $faena));
+
+        $this->assertDatabaseHas('faena_contratista', [
+            'faena_id' => $faena->id,
+            'contratista_id' => $contratista->id,
+        ]);
+
+        $this->actingAs($admin)
+            ->from(route('faenas.show', $faena))
+            ->delete(route('faenas.contratistas.destroy', ['faena' => $faena, 'contratista' => $contratista->id]))
+            ->assertRedirect(route('faenas.show', $faena));
+
+        $this->assertDatabaseMissing('faena_contratista', [
+            'faena_id' => $faena->id,
+            'contratista_id' => $contratista->id,
+        ]);
+    }
+
+    public function test_cannot_remove_contratista_participant_with_active_workers_in_faena(): void
+    {
+        $admin = User::factory()->create([
+            'role' => UserRole::Admin,
+        ]);
+        $contratista = Contratista::factory()->create();
+        $tipoFaena = TipoFaena::create([
+            'nombre' => 'Packing',
+            'codigo' => 'PACKING',
+            'descripcion' => 'Procesos de packing',
+            'activo' => true,
+        ]);
+        $faena = Faena::create([
+            'tipo_faena_id' => $tipoFaena->id,
+            'nombre' => 'Faena Bloqueada',
+            'codigo' => 'FAENA_BLOCK',
+            'descripcion' => null,
+            'ubicacion' => null,
+            'estado' => 'activa',
+            'fecha_inicio' => now()->toDateString(),
+            'fecha_termino' => null,
+        ]);
+        $trabajador = Trabajador::create([
+            'id' => '66778899',
+            'documento' => '66778899-1',
+            'nombre' => 'Ana',
+            'apellido' => 'Ruiz',
+            'contratista_id' => $contratista->id,
+            'estado' => 'activo',
+            'fecha_ingreso' => now()->toDateString(),
+        ]);
+
+        DB::table('faena_contratista')->insert([
+            'faena_id' => $faena->id,
+            'contratista_id' => $contratista->id,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        $faena->trabajadores()->attach($trabajador->id, [
+            'fecha_asignacion' => now()->toDateString(),
+            'fecha_desasignacion' => null,
+        ]);
+
+        $this->actingAs($admin)
+            ->from(route('faenas.show', $faena))
+            ->delete(route('faenas.contratistas.destroy', ['faena' => $faena, 'contratista' => $contratista->id]))
+            ->assertRedirect(route('faenas.show', $faena))
+            ->assertSessionHasErrors('contratista_id');
+
+        $this->assertDatabaseHas('faena_contratista', [
+            'faena_id' => $faena->id,
+            'contratista_id' => $contratista->id,
         ]);
     }
 
@@ -254,6 +360,51 @@ class FaenaShowPageTest extends TestCase
         $this->assertDatabaseMissing('faena_trabajador', [
             'faena_id' => $faena->id,
             'trabajador_id' => $trabajadorOtroContratista->id,
+        ]);
+    }
+
+    public function test_contratista_user_cannot_assign_worker_to_faena_where_company_does_not_participate(): void
+    {
+        $contratista = Contratista::factory()->create();
+        $usuarioContratista = User::factory()->create([
+            'role' => UserRole::Contratista,
+            'contratista_id' => $contratista->id,
+        ]);
+        $tipoFaena = TipoFaena::create([
+            'nombre' => 'Packing',
+            'codigo' => 'PACKING',
+            'descripcion' => 'Procesos de packing',
+            'activo' => true,
+        ]);
+        $faena = Faena::create([
+            'tipo_faena_id' => $tipoFaena->id,
+            'nombre' => 'Faena Restringida',
+            'codigo' => 'FAENA_RES',
+            'descripcion' => null,
+            'ubicacion' => null,
+            'estado' => 'activa',
+            'fecha_inicio' => now()->toDateString(),
+            'fecha_termino' => null,
+        ]);
+        $trabajador = Trabajador::create([
+            'id' => '55667788',
+            'documento' => '55667788-2',
+            'nombre' => 'Pablo',
+            'apellido' => 'Nuñez',
+            'contratista_id' => $contratista->id,
+            'estado' => 'activo',
+            'fecha_ingreso' => now()->toDateString(),
+        ]);
+
+        $this->actingAs($usuarioContratista)
+            ->post(route('faenas.assign', $faena), [
+                'trabajador_id' => $trabajador->id,
+            ])
+            ->assertForbidden();
+
+        $this->assertDatabaseMissing('faena_trabajador', [
+            'faena_id' => $faena->id,
+            'trabajador_id' => $trabajador->id,
         ]);
     }
 
