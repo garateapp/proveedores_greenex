@@ -16,10 +16,10 @@ export default defineConfig({
                 plugins: ['babel-plugin-react-compiler'],
             },
         }),
-        tailwindcss(),
-        wayfinder({
-            formVariants: true,
-        }),
+        //tailwindcss(),
+        // wayfinder({
+        //     formVariants: true,
+        // }),
     ],
     esbuild: {
         jsx: 'automatic',
