@@ -21,22 +21,28 @@ export default defineConfig({
             formVariants: true,
         }),
     ],
-    resolve: {
-        alias: {
-            '@': '/resources/js',
-        },
-    },
-    esbuild: {
-        jsx: 'automatic',
-    },
-    define: {
-         global: 'globalThis',
-     },
-    optimizeDeps: {
-        esbuildOptions: {
-            define: {
-                global: 'globalThis',
+    build: {
+        rollupOptions: {
+            // Esto es el "freno de mano" para que no busque index.html
+            input: {
+                app: 'resources/js/app.tsx',
+                css: 'resources/css/app.css'
             },
         },
     },
+
+
+    // esbuild: {
+    //     jsx: 'automatic',
+    // },
+    // define: {
+    //      global: 'globalThis',
+    //  },
+    // optimizeDeps: {
+    //     esbuildOptions: {
+    //         define: {
+    //             global: 'globalThis',
+    //         },
+    //     },
+    // },
 });
