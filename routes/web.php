@@ -93,6 +93,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('estados-pago/create', [\App\Http\Controllers\EstadoPagoController::class, 'create'])->name('estados-pago.create');
     Route::get('estados-pago/{estadoPago}', [\App\Http\Controllers\EstadoPagoController::class, 'show'])->name('estados-pago.show');
     Route::post('estados-pago', [\App\Http\Controllers\EstadoPagoController::class, 'store'])->name('estados-pago.store');
+    Route::delete('estados-pago/{estadoPago}', [\App\Http\Controllers\EstadoPagoController::class, 'destroy'])->name('estados-pago.destroy');
     Route::patch('estados-pago/{estadoPago}/estado', [\App\Http\Controllers\EstadoPagoController::class, 'updateEstado'])->name('estados-pago.update-estado');
 
     // Admin: Gestión de Usuarios y Contratistas

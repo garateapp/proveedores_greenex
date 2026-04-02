@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Contratista;
 use App\Models\EstadoPago;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -141,5 +142,20 @@ class EstadoPagoController extends Controller
         ]);
 
         return back()->with('success', 'Estado actualizado exitosamente.');
+    }
+
+    /**
+     * Remove the specified estado de pago (admin only).
+     */
+    public function destroy(Request $request, EstadoPago $estadoPago): RedirectResponse
+    {
+        if (! $request->user()->isAdmin()) {
+            abort(403);
+        }
+
+        $estadoPago->delete();
+
+        return redirect()->route('estados-pago.index')
+            ->with('success', 'Estado de pago eliminado exitosamente.');
     }
 }
