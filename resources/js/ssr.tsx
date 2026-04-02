@@ -12,8 +12,8 @@ createServer((page) =>
         title: (title) => (title ? `${title} - ${appName}` : appName),
         resolve: (name) =>
             resolvePageComponent(
-                `./pages/${name}.tsx`,
-                import.meta.glob('./pages/**/*.tsx'),
+                `./Pages/${name}.tsx`, // <-- Cambiado a P mayúscula
+                import.meta.glob('./Pages/**/*.tsx'), // <-- Cambiado a P mayúscula
             ),
         setup: ({ App, props }) => {
             return <App {...props} />;
