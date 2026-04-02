@@ -151,19 +151,19 @@ class CuadraturaAsistenciaTest extends TestCase
     private function fakeGreenexnet(?callable $diasTrabajadosResponder = null): void
     {
         config([
-            'services.greenexnet.base_url' => 'https://greenexnet.test',
+            'services.greenexnet.base_url' => 'https://net.greenexweb.cl',
             'services.greenexnet.entidades_path' => '/api/entidads',
             'services.greenexnet.dias_trabajados_path' => '/api/attendances/dias-trabajados',
             'services.greenexnet.verify_ssl' => true,
         ]);
 
         Http::fake([
-            'https://greenexnet.test/api/entidads*' => Http::response([
+            'https://net.greenexweb.cl/api/entidads*' => Http::response([
                 ['id' => 4, 'nombre' => 'Las Orquideas', 'tipo_id' => 2],
                 ['id' => 9, 'nombre' => 'Bodega Central', 'tipo_id' => 2],
                 ['id' => 1, 'nombre' => 'No valida', 'tipo_id' => 1],
             ], 200),
-            'https://greenexnet.test/api/attendances/dias-trabajados*' => $diasTrabajadosResponder
+            'https://net.greenexweb.cl/api/attendances/dias-trabajados*' => $diasTrabajadosResponder
                 ?? Http::response([
                     ['dias_trabajados' => 0],
                 ], 200),

@@ -100,11 +100,11 @@ class ComparePdfAsistenciaWithGreenexnetAction
             $response = $this->baseRequest(Http::acceptJson())
                 ->get($this->entidadesPath(), ['tipo_id' => 2]);
         } catch (\Throwable $exception) {
-            throw new RuntimeException('No fue posible obtener entidades desde greenexnet.test.', previous: $exception);
+            throw new RuntimeException('No fue posible obtener entidades desde net.greenexweb.cl.', previous: $exception);
         }
 
         if (! $response->successful()) {
-            throw new RuntimeException('No fue posible obtener entidades desde greenexnet.test.');
+            throw new RuntimeException('No fue posible obtener entidades desde net.greenexweb.cl.');
         }
 
         $entidades = [];
