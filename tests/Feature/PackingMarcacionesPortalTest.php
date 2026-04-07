@@ -11,6 +11,7 @@ use App\Models\Trabajador;
 use App\Models\Ubicacion;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Collection;
 use Tests\TestCase;
 
 class PackingMarcacionesPortalTest extends TestCase
@@ -75,13 +76,45 @@ class PackingMarcacionesPortalTest extends TestCase
             });
     }
 
+    public function test_admin_can_filter_markings_by_contratista_and_ubicacion(): void
+    {
+        $contratistaA = Contratista::factory()->create();
+        $contratistaB = Contratista::factory()->create();
+
+        $admin = User::factory()->create([
+            'role' => UserRole::Admin,
+        ]);
+
+        $marcacionA = $this->createMarcacion('55555555', $contratistaA->id, $admin->id, 'QR-A-003', 'MARK-A-003');
+        $this->createMarcacion('66666666', $contratistaB->id, $admin->id, 'QR-B-003', 'MARK-B-003');
+
+        $response = $this->actingAs($admin)
+            ->get('/packing/marcaciones?contratista_id='.$contratistaA->id.'&ubicacion_id='.$marcacionA->ubicacion_id);
+
+        $response->assertOk()
+            ->assertViewHas('page', function (array $page) use ($contratistaA, $marcacionA): bool {
+                $props = $page['props'] ?? [];
+                $marcaciones = collect($props['marcaciones'] ?? []);
+                $contratistas = collect($props['contratistas'] ?? []);
+                $ubicaciones = collect($props['ubicaciones'] ?? []);
+
+                return ($page['component'] ?? null) === 'admin/packing/marcaciones/index'
+                    && $marcaciones->count() === 1
+                    && ($marcaciones->first()['uuid'] ?? null) === 'MARK-A-003'
+                    && ($props['filters']['contratista_id'] ?? null) === (string) $contratistaA->id
+                    && ($props['filters']['ubicacion_id'] ?? null) === (string) $marcacionA->ubicacion_id
+                    && $this->collectionContainsId($contratistas, $contratistaA->id)
+                    && $this->collectionContainsId($ubicaciones, $marcacionA->ubicacion_id);
+            });
+    }
+
     private function createMarcacion(
         string $trabajadorId,
         int $contratistaId,
         int $registradoPor,
         string $codigoQr,
         string $uuid,
-    ): void {
+    ): MarcacionPacking {
         $trabajador = Trabajador::create([
             'id' => $trabajadorId,
             'documento' => $trabajadorId.'-1',
@@ -107,7 +140,7 @@ class PackingMarcacionesPortalTest extends TestCase
 
         $ubicacion = Ubicacion::factory()->principal()->create();
 
-        MarcacionPacking::create([
+        return MarcacionPacking::create([
             'uuid' => $uuid,
             'trabajador_id' => $trabajador->id,
             'tarjeta_qr_id' => $tarjeta->id,
@@ -119,5 +152,10 @@ class PackingMarcacionesPortalTest extends TestCase
             'ubicacion_id' => $ubicacion->id,
             'sincronizado_at' => now(),
         ]);
+    }
+
+    private function collectionContainsId(Collection $collection, int $id): bool
+    {
+        return $collection->contains(fn (array $item): bool => ($item['id'] ?? null) === $id);
     }
 }
