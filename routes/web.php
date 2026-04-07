@@ -1,12 +1,16 @@
 <?php
 
 use App\Http\Controllers\Admin\AuditLogController;
+use App\Http\Controllers\Admin\PackingMarcacionController;
+use App\Http\Controllers\Admin\PackingTarjetaAsignacionController;
+use App\Http\Controllers\Admin\PackingTarjetaController;
 use App\Http\Controllers\Admin\PlantillaDocumentoTrabajadorController;
 use App\Http\Controllers\CentroCargaController;
 use App\Http\Controllers\ContratistaDashboardController;
 use App\Http\Controllers\ContratistaRegistrationController;
 use App\Http\Controllers\CuadraturaAsistenciaController;
 use App\Http\Controllers\DocumentoTrabajadorFirmaController;
+use App\Http\Controllers\PackingSyncController;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 use Laravel\Fortify\Features;
@@ -101,6 +105,18 @@ Route::middleware(['auth', 'verified'])->group(function () {
     // Admin: Gestión de Usuarios y Contratistas
     Route::prefix('admin')->name('admin.')->middleware('admin')->group(function () {
         Route::get('audit-logs', [AuditLogController::class, 'index'])->name('audit-logs.index');
+
+        Route::prefix('packing')->name('packing.')->group(function () {
+            Route::get('tarjetas', [PackingTarjetaController::class, 'index'])->name('tarjetas.index');
+            Route::post('tarjetas', [PackingTarjetaController::class, 'store'])->name('tarjetas.store');
+            Route::post('tarjetas/{tarjeta}/asignaciones', [PackingTarjetaAsignacionController::class, 'store'])->name('tarjetas.asignaciones.store');
+            Route::get('marcaciones', [PackingMarcacionController::class, 'index'])->name('marcaciones.index');
+            Route::post('sync', [PackingSyncController::class, 'store'])->name('sync.store');
+        });
+
+        // Gestión de ubicaciones
+        Route::resource('ubicaciones', \App\Http\Controllers\Admin\UbicacionController::class)->except(['create', 'edit', 'show']);
+        Route::post('ubicaciones/{ubicacion}/toggle-activa', [\App\Http\Controllers\Admin\UbicacionController::class, 'toggleActiva'])->name('ubicaciones.toggle-activa');
 
         // Gestión de usuarios
         Route::resource('users', \App\Http\Controllers\Admin\UserManagementController::class);

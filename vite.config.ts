@@ -12,9 +12,9 @@ export default defineConfig({
             refresh: true,
         }),
         react({
-            babel: {
-                plugins: ['babel-plugin-react-compiler'],
-            },
+            // babel: {
+            //     plugins: ['babel-plugin-react-compiler'],
+            // },
         }),
         tailwindcss(),
         wayfinder({

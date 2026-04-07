@@ -74,6 +74,16 @@ export function AppSidebar() {
                   icon: Users,
               },
               {
+                  title: 'Ubicaciones',
+                  href: '/admin/ubicaciones',
+                  icon: MapPin,
+              },
+              {
+                  title: 'Tarjetas QR',
+                  href: '/admin/packing/tarjetas',
+                  icon: Clock,
+              },
+              {
                   title: 'Auditoría',
                   href: '/admin/audit-logs',
                   icon: ClipboardList,

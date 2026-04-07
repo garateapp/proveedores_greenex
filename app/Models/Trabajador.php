@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Trabajador extends Model
@@ -70,6 +71,18 @@ class Trabajador extends Model
     public function documentosTrabajador(): HasMany
     {
         return $this->hasMany(DocumentoTrabajador::class);
+    }
+
+    public function tarjetaQrAsignaciones(): HasMany
+    {
+        return $this->hasMany(TarjetaQrAsignacion::class);
+    }
+
+    public function tarjetaQrAsignacionActiva(): HasOne
+    {
+        return $this->hasOne(TarjetaQrAsignacion::class)
+            ->whereNull('desasignada_en')
+            ->latestOfMany('asignada_en');
     }
 
     /**
