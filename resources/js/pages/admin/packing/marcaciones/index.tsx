@@ -26,21 +26,24 @@ interface MarcacionPackingItem {
     marcado_en: string | null;
     device_id: string | null;
     sync_batch_id: string | null;
+    ubicacion: string | null;
 }
 
 interface Props {
     marcaciones: MarcacionPackingItem[];
+    indexUrl: string;
+    canManageCards: boolean;
     filters: {
         search?: string;
     };
 }
 
-export default function PackingMarcacionesIndex({ marcaciones, filters }: Props) {
+export default function PackingMarcacionesIndex({ marcaciones, indexUrl, canManageCards, filters }: Props) {
     const [search, setSearch] = useState(filters.search ?? '');
 
     const handleSearch = () => {
         router.get(
-            '/admin/packing/marcaciones',
+            indexUrl,
             { search: search || undefined },
             { preserveState: true, preserveScroll: true },
         );
@@ -58,12 +61,14 @@ export default function PackingMarcacionesIndex({ marcaciones, filters }: Props)
                             Revise las marcaciones históricas sincronizadas desde la app mobile.
                         </p>
                     </div>
-                    <Link href="/admin/packing/tarjetas">
-                        <Button variant="outline">
-                            <ArrowLeft className="mr-2 h-4 w-4" />
-                            Volver a tarjetas
-                        </Button>
-                    </Link>
+                    {canManageCards && (
+                        <Link href="/admin/packing/tarjetas">
+                            <Button variant="outline">
+                                <ArrowLeft className="mr-2 h-4 w-4" />
+                                Volver a tarjetas
+                            </Button>
+                        </Link>
+                    )}
                 </div>
 
                 <Card>
@@ -104,6 +109,7 @@ export default function PackingMarcacionesIndex({ marcaciones, filters }: Props)
                                     <TableHead>Trabajador</TableHead>
                                     <TableHead>Tarjeta</TableHead>
                                     <TableHead>Contratista</TableHead>
+                                    <TableHead>Ubicación</TableHead>
                                     <TableHead>Dispositivo</TableHead>
                                     <TableHead>Lote sync</TableHead>
                                 </TableRow>
@@ -111,7 +117,7 @@ export default function PackingMarcacionesIndex({ marcaciones, filters }: Props)
                             <TableBody>
                                 {marcaciones.length === 0 ? (
                                     <TableRow>
-                                        <TableCell colSpan={6} className="text-center">
+                                        <TableCell colSpan={7} className="text-center">
                                             No hay marcaciones registradas.
                                         </TableCell>
                                     </TableRow>
@@ -138,6 +144,7 @@ export default function PackingMarcacionesIndex({ marcaciones, filters }: Props)
                                                 </div>
                                             </TableCell>
                                             <TableCell>{marcacion.contratista ?? '-'}</TableCell>
+                                            <TableCell>{marcacion.ubicacion ?? '-'}</TableCell>
                                             <TableCell>{marcacion.device_id ?? '-'}</TableCell>
                                             <TableCell>{marcacion.sync_batch_id ?? '-'}</TableCell>
                                         </TableRow>

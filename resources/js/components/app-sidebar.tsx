@@ -113,6 +113,11 @@ export function AppSidebar() {
             href: '/asistencias',
             icon: Clock,
         },
+        {
+            title: 'Marcaciones Packing',
+            href: '/packing/marcaciones',
+            icon: ClipboardList,
+        },
     ];
 
     const documentacionItems: NavItem[] = [

@@ -90,6 +90,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::post('asistencias/bulk', [\App\Http\Controllers\AsistenciaController::class, 'storeBulk'])->name('asistencias.bulk');
     Route::get('asistencias/export', [\App\Http\Controllers\AsistenciaController::class, 'export'])->name('asistencias.export');
 
+    // Packing - Consulta de marcaciones para portal
+    Route::get('packing/marcaciones', [PackingMarcacionController::class, 'index'])->name('packing.marcaciones.index');
+
     // Herramientas
     Route::get('herramientas/cuadratura-asistencia', [CuadraturaAsistenciaController::class, 'index'])->name('herramientas.cuadratura-asistencia.index');
     Route::post('herramientas/cuadratura-asistencia', [CuadraturaAsistenciaController::class, 'extract'])->name('herramientas.cuadratura-asistencia.extract');
