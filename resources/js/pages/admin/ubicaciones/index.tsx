@@ -22,8 +22,9 @@ import {
     DialogHeader,
     DialogTitle,
 } from '@/components/ui/dialog';
-import { Plus, Search, Edit, Trash2, Power, PowerOff, ChevronRight } from 'lucide-react';
-import { useState } from 'react';
+import { Download, Edit, Plus, Power, PowerOff, Search, Trash2, Upload, ChevronRight } from 'lucide-react';
+import type React from 'react';
+import { useRef, useState } from 'react';
 
 interface UbicacionHijo {
     id: number;
@@ -63,7 +64,9 @@ interface Props {
 export default function UbicacionesIndex({ ubicaciones, ubicacionesPrincipales, filters }: Props) {
     const [search, setSearch] = useState(filters.search ?? '');
     const [showDialog, setShowDialog] = useState(false);
+    const [showImportDialog, setShowImportDialog] = useState(false);
     const [editingUbicacion, setEditingUbicacion] = useState<UbicacionItem | null>(null);
+    const importFileInputRef = useRef<HTMLInputElement | null>(null);
 
     const form = useForm({
         padre_id: '',
@@ -72,6 +75,9 @@ export default function UbicacionesIndex({ ubicaciones, ubicacionesPrincipales, 
         descripcion: '',
         tipo: 'secundaria',
         orden: '0',
+    });
+    const importForm = useForm({
+        file: null as File | null,
     });
 
     const handleSearch = () => {
@@ -118,6 +124,19 @@ export default function UbicacionesIndex({ ubicaciones, ubicacionesPrincipales, 
         }
     };
 
+    const handleImportSubmit = (event: React.FormEvent<HTMLFormElement>) => {
+        event.preventDefault();
+
+        importForm.post('/admin/ubicaciones/import', {
+            forceFormData: true,
+            preserveScroll: true,
+            onSuccess: () => {
+                setShowImportDialog(false);
+                importForm.reset();
+            },
+        });
+    };
+
     const toggleActiva = (ubicacion: UbicacionItem) => {
         router.post(
             `/admin/ubicaciones/${ubicacion.id}/toggle-activa`,
@@ -156,10 +175,22 @@ export default function UbicacionesIndex({ ubicaciones, ubicacionesPrincipales, 
                             Gestione las estructura de ubicaciones dentro de la planta.
                         </p>
                     </div>
-                    <Button onClick={openCreateDialog}>
-                        <Plus className="mr-2 h-4 w-4" />
-                        Nueva ubicación
-                    </Button>
+                    <div className="flex flex-wrap items-center gap-2">
+                        <Button asChild variant="outline">
+                            <a href="/admin/ubicaciones/template">
+                                <Download className="mr-2 h-4 w-4" />
+                                Descargar plantilla
+                            </a>
+                        </Button>
+                        <Button variant="outline" onClick={() => setShowImportDialog(true)}>
+                            <Upload className="mr-2 h-4 w-4" />
+                            Subida masiva CSV
+                        </Button>
+                        <Button onClick={openCreateDialog}>
+                            <Plus className="mr-2 h-4 w-4" />
+                            Nueva ubicación
+                        </Button>
+                    </div>
                 </div>
 
                 <Card>
@@ -406,6 +437,82 @@ export default function UbicacionesIndex({ ubicaciones, ubicacionesPrincipales, 
                             {editingUbicacion ? 'Actualizar' : 'Crear'}
                         </Button>
                     </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
+            <Dialog
+                open={showImportDialog}
+                onOpenChange={(open) => {
+                    setShowImportDialog(open);
+                    if (!open) {
+                        importForm.reset();
+                    }
+                }}
+            >
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle>Subida masiva de ubicaciones</DialogTitle>
+                        <DialogDescription>
+                            Cargue un archivo CSV basado en la plantilla oficial. Solo se crearán
+                            ubicaciones nuevas.
+                        </DialogDescription>
+                    </DialogHeader>
+
+                    <form className="space-y-4" onSubmit={handleImportSubmit}>
+                        <div className="rounded-lg border border-dashed border-border p-4">
+                            <div className="space-y-2">
+                                <p className="text-sm font-medium">Archivo CSV</p>
+                                <p className="text-sm text-muted-foreground">
+                                    Columnas requeridas: código, nombre, descripción, tipo,
+                                    padre_codigo y orden.
+                                </p>
+                                <Button
+                                    type="button"
+                                    variant="secondary"
+                                    onClick={() => importFileInputRef.current?.click()}
+                                >
+                                    Seleccionar archivo
+                                </Button>
+                                {importForm.data.file && (
+                                    <p className="text-sm text-foreground">
+                                        {importForm.data.file.name}
+                                    </p>
+                                )}
+                                <input
+                                    ref={importFileInputRef}
+                                    type="file"
+                                    accept=".csv"
+                                    className="hidden"
+                                    onChange={(event) =>
+                                        importForm.setData(
+                                            'file',
+                                            event.target.files?.[0] ?? null,
+                                        )
+                                    }
+                                />
+                            </div>
+                        </div>
+
+                        {importForm.errors.file && (
+                            <p className="text-sm text-destructive">{importForm.errors.file}</p>
+                        )}
+
+                        <DialogFooter>
+                            <Button
+                                type="button"
+                                variant="outline"
+                                onClick={() => setShowImportDialog(false)}
+                            >
+                                Cancelar
+                            </Button>
+                            <Button
+                                type="submit"
+                                disabled={importForm.processing || !importForm.data.file}
+                            >
+                                Importar CSV
+                            </Button>
+                        </DialogFooter>
+                    </form>
                 </DialogContent>
             </Dialog>
         </>

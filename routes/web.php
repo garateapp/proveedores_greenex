@@ -118,7 +118,11 @@ Route::middleware(['auth', 'verified'])->group(function () {
         });
 
         // Gestión de ubicaciones
-        Route::resource('ubicaciones', \App\Http\Controllers\Admin\UbicacionController::class)->except(['create', 'edit', 'show']);
+        Route::resource('ubicaciones', \App\Http\Controllers\Admin\UbicacionController::class)
+            ->parameters(['ubicaciones' => 'ubicacion'])
+            ->except(['create', 'edit', 'show']);
+        Route::get('ubicaciones/template', [\App\Http\Controllers\Admin\UbicacionImportController::class, 'template'])->name('ubicaciones.template');
+        Route::post('ubicaciones/import', [\App\Http\Controllers\Admin\UbicacionImportController::class, 'import'])->name('ubicaciones.import');
         Route::post('ubicaciones/{ubicacion}/toggle-activa', [\App\Http\Controllers\Admin\UbicacionController::class, 'toggleActiva'])->name('ubicaciones.toggle-activa');
 
         // Gestión de usuarios
