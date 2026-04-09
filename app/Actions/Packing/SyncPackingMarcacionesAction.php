@@ -16,6 +16,8 @@ class SyncPackingMarcacionesAction
      */
     public function execute(array $marcaciones, ?User $actor, ?string $syncBatchId = null): array
     {
+        $timezone = config('app.timezone');
+
         usort($marcaciones, static function (array $left, array $right): int {
             return strcmp((string) $left['marcado_en'], (string) $right['marcado_en']);
         });
@@ -41,7 +43,8 @@ class SyncPackingMarcacionesAction
                 continue;
             }
 
-            $marcadoEn = Carbon::parse((string) $marcacion['marcado_en']);
+            $marcadoEn = Carbon::parse((string) $marcacion['marcado_en'], $timezone)
+                ->setTimezone($timezone);
 
             $asignacion = TarjetaQrAsignacion::query()
                 ->where('tarjeta_qr_id', $tarjeta->id)

@@ -11,6 +11,7 @@ use App\Models\Trabajador;
 use App\Models\Ubicacion;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Carbon;
 use Tests\TestCase;
 
 class MarcacionQrApiTest extends TestCase
@@ -69,6 +70,62 @@ class MarcacionQrApiTest extends TestCase
             'ubicacion_id' => $ubicacion->id,
             'device_id' => 'mobile-test-1',
         ]);
+    }
+
+    public function test_it_stores_marcado_en_using_america_santiago_timezone(): void
+    {
+        $admin = User::factory()->create([
+            'role' => UserRole::Admin,
+        ]);
+
+        $contratista = Contratista::factory()->create();
+
+        $trabajador = Trabajador::create([
+            'id' => '57575757',
+            'documento' => '57575757-5',
+            'nombre' => 'Claudia',
+            'apellido' => 'Horario',
+            'contratista_id' => $contratista->id,
+            'estado' => 'activo',
+            'fecha_ingreso' => now()->toDateString(),
+        ]);
+
+        $tarjeta = TarjetaQr::create([
+            'numero_serie' => 'PACK-5757',
+            'codigo_qr' => 'QR-PACK-5757',
+            'estado' => 'asignada',
+        ]);
+
+        TarjetaQrAsignacion::create([
+            'tarjeta_qr_id' => $tarjeta->id,
+            'trabajador_id' => $trabajador->id,
+            'asignada_en' => '2026-04-06 06:00:00',
+            'asignada_por' => $admin->id,
+        ]);
+
+        $response = $this->postJson('/api/v1/asistencias/qr', [
+            'codigo_qr' => 'QR-PACK-5757',
+            'marcado_en' => '2026-04-06 08:10:00',
+        ]);
+
+        $response->assertCreated();
+        $response->assertJsonPath('data.marcado_en', '2026-04-06T08:10:00-04:00');
+
+        $marcacion = MarcacionPacking::query()
+            ->where('codigo_qr_snapshot', 'QR-PACK-5757')
+            ->firstOrFail();
+
+        $this->assertSame(
+            '2026-04-06 08:10:00',
+            $marcacion->marcado_en?->setTimezone('America/Santiago')->format('Y-m-d H:i:s'),
+        );
+
+        $this->assertSame(
+            '2026-04-06T08:10:00-04:00',
+            Carbon::parse($response->json('data.marcado_en'))
+                ->setTimezone('America/Santiago')
+                ->format('Y-m-d\TH:i:sP'),
+        );
     }
 
     public function test_it_ignores_duplicate_markings_within_120_minutes(): void

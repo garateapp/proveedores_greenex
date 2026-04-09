@@ -4,8 +4,10 @@ namespace App\Providers;
 
 use App\Actions\Fortify\CreateNewUser;
 use App\Actions\Fortify\ResetUserPassword;
+use App\Models\ActivityLog;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Support\Str;
@@ -31,6 +33,7 @@ class FortifyServiceProvider extends ServiceProvider
         $this->configureActions();
         $this->configureViews();
         $this->configureRateLimiting();
+        $this->configureEvents();
     }
 
     /**
@@ -87,5 +90,116 @@ class FortifyServiceProvider extends ServiceProvider
 
             return Limit::perMinute(5)->by($throttleKey);
         });
+    }
+
+    /**
+     * Configure event listeners for authentication events.
+     */
+    private function configureEvents(): void
+    {
+        // Track successful logins
+        Event::listen(function (\Illuminate\Auth\Events\Login $event) {
+            $user = $event->user;
+            $request = $event->request;
+            $userAgent = $request->userAgent() ?? '';
+
+            ActivityLog::create([
+                'user_id' => $user->id,
+                'event' => 'login',
+                'url' => $request->fullUrl(),
+                'method' => $request->method(),
+                'ip_address' => $request->ip(),
+                'user_agent' => $userAgent,
+                'device_type' => $this->getDeviceType($userAgent),
+                'browser' => $this->getBrowser($userAgent),
+                'platform' => $this->getPlatform($userAgent),
+                'metadata' => [
+                    'remember' => $request->has('remember'),
+                    'referer' => $request->headers->get('referer'),
+                ],
+            ]);
+        });
+
+        // Track logouts
+        Event::listen(function (\Illuminate\Auth\Events\Logout $event) {
+            if ($event->user) {
+                $user = $event->user;
+                $request = request();
+                $userAgent = $request->userAgent() ?? '';
+
+                ActivityLog::create([
+                    'user_id' => $user->id,
+                    'event' => 'logout',
+                    'url' => $request->fullUrl(),
+                    'method' => $request->method(),
+                    'ip_address' => $request->ip(),
+                    'user_agent' => $userAgent,
+                    'device_type' => $this->getDeviceType($userAgent),
+                    'browser' => $this->getBrowser($userAgent),
+                    'platform' => $this->getPlatform($userAgent),
+                    'metadata' => [],
+                ]);
+            }
+        });
+    }
+
+    /**
+     * Determine device type from user agent.
+     */
+    private function getDeviceType(string $userAgent): string
+    {
+        if (preg_match('/Mobile|Android|iPhone|iPad|iPod/i', $userAgent)) {
+            return 'mobile';
+        }
+
+        if (preg_match('/Tablet|iPad/i', $userAgent)) {
+            return 'tablet';
+        }
+
+        return 'desktop';
+    }
+
+    /**
+     * Extract browser name from user agent.
+     */
+    private function getBrowser(string $userAgent): string
+    {
+        $browsers = [
+            'Chrome' => '/Chrome/i',
+            'Firefox' => '/Firefox/i',
+            'Safari' => '/Safari/i',
+            'Edge' => '/Edg/i',
+            'Opera' => '/Opera|OPR/i',
+        ];
+
+        foreach ($browsers as $name => $pattern) {
+            if (preg_match($pattern, $userAgent)) {
+                return $name;
+            }
+        }
+
+        return 'Unknown';
+    }
+
+    /**
+     * Extract platform/OS from user agent.
+     */
+    private function getPlatform(string $userAgent): string
+    {
+        $platforms = [
+            'Windows' => '/Windows NT/i',
+            'Mac OS' => '/Macintosh/i',
+            'Linux' => '/Linux/i',
+            'Android' => '/Android/i',
+            'iOS' => '/iPhone|iPad|iPod/i',
+        ];
+
+        foreach ($platforms as $name => $pattern) {
+            if (preg_match($pattern, $userAgent)) {
+                return $name;
+            }
+        }
+
+        return 'Unknown';
     }
 }

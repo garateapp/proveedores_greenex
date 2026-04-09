@@ -17,6 +17,7 @@ class AsistenciaQrController extends Controller
     ): JsonResponse {
         $validated = $request->validated();
         $uuid = (string) Str::uuid();
+        $timezone = config('app.timezone');
 
         $result = $syncPackingMarcacionesAction->execute(
             [[
@@ -45,7 +46,7 @@ class AsistenciaQrController extends Controller
                 'message' => 'Marcación registrada exitosamente.',
                 'data' => [
                     'uuid' => $marcacion->uuid,
-                    'marcado_en' => $marcacion->marcado_en?->toISOString(),
+                    'marcado_en' => $marcacion->marcado_en?->setTimezone($timezone)->toIso8601String(),
                     'trabajador' => [
                         'id' => $marcacion->trabajador_id,
                         'nombre' => $marcacion->trabajador?->nombre_completo,

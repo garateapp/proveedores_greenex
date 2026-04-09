@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Api\ActivityLogController;
 use App\Http\Controllers\Api\AsistenciaQrController;
 use App\Http\Controllers\Api\UbicacionController;
 use Illuminate\Support\Facades\Route;
@@ -26,4 +27,12 @@ Route::prefix('v1')->group(function () {
 
     // Registro de asistencia por QR de tarjeta
     Route::post('/asistencias/qr', [AsistenciaQrController::class, 'store']);
+
+    // Activity logs - authenticated routes
+    Route::middleware('auth')->group(function () {
+        Route::get('/activity-logs', [ActivityLogController::class, 'index']);
+        Route::get('/activity-logs/summary', [ActivityLogController::class, 'summary']);
+        Route::get('/activity-logs/navigation-history', [ActivityLogController::class, 'navigationHistory']);
+        Route::get('/activity-logs/{activityLog}', [ActivityLogController::class, 'show']);
+    });
 });
