@@ -20,9 +20,8 @@ import { Head, Link, useForm } from '@inertiajs/react';
 import { ArrowLeft, Eraser, PenSquare, Save } from 'lucide-react';
 import {
     type FormEventHandler,
-    type MouseEvent,
     type ReactElement,
-    type TouchEvent,
+    type PointerEvent as ReactPointerEvent,
     useEffect,
     useRef,
     useState,
@@ -74,9 +73,7 @@ const breadcrumbs = (trabajadorId: string): BreadcrumbItem[] => [
     },
 ];
 
-type SignaturePointerEvent =
-    | MouseEvent<HTMLCanvasElement>
-    | TouchEvent<HTMLCanvasElement>;
+type SignaturePointerEvent = ReactPointerEvent<HTMLCanvasElement>;
 
 const paperPreviewSpec = (paperFormat: string): PaperPreviewSpec => {
     if (paperFormat.toLowerCase() === 'a4') {
@@ -101,7 +98,7 @@ export default function FirmasDocumentosTrabajadorCreate({
 }: Props) {
     const canvasRef = useRef<HTMLCanvasElement | null>(null);
     const contextRef = useRef<CanvasRenderingContext2D | null>(null);
-    const [isDrawing, setIsDrawing] = useState(false);
+    const isDrawingRef = useRef(false);
     const [hasSignature, setHasSignature] = useState(false);
     const [signatureError, setSignatureError] = useState<string | null>(null);
     const [isSignatureModalOpen, setIsSignatureModalOpen] = useState(false);
@@ -115,22 +112,28 @@ export default function FirmasDocumentosTrabajadorCreate({
             return;
         }
 
-        const canvas = canvasRef.current;
-        if (!canvas) {
-            return;
-        }
+        const animationFrame = window.requestAnimationFrame(() => {
+            const canvas = canvasRef.current;
+            if (!canvas) {
+                return;
+            }
 
-        const context = canvas.getContext('2d');
-        if (!context) {
-            return;
-        }
+            const context = canvas.getContext('2d');
+            if (!context) {
+                return;
+            }
 
-        context.lineCap = 'round';
-        context.lineJoin = 'round';
-        context.strokeStyle = '#111827';
-        context.lineWidth = 3;
-        context.clearRect(0, 0, canvas.width, canvas.height);
-        contextRef.current = context;
+            context.lineCap = 'round';
+            context.lineJoin = 'round';
+            context.strokeStyle = '#111827';
+            context.lineWidth = 3;
+            context.clearRect(0, 0, canvas.width, canvas.height);
+            contextRef.current = context;
+        });
+
+        return () => {
+            window.cancelAnimationFrame(animationFrame);
+        };
     }, [isSignatureModalOpen]);
 
     const getCoordinates = (
@@ -145,19 +148,6 @@ export default function FirmasDocumentosTrabajadorCreate({
         const scaleX = canvas.width / rect.width;
         const scaleY = canvas.height / rect.height;
 
-        if ('touches' in event) {
-            if (event.touches.length === 0) {
-                return null;
-            }
-
-            const touch = event.touches[0];
-
-            return {
-                x: (touch.clientX - rect.left) * scaleX,
-                y: (touch.clientY - rect.top) * scaleY,
-            };
-        }
-
         return {
             x: (event.clientX - rect.left) * scaleX,
             y: (event.clientY - rect.top) * scaleY,
@@ -166,6 +156,7 @@ export default function FirmasDocumentosTrabajadorCreate({
 
     const startDrawing = (event: SignaturePointerEvent): void => {
         event.preventDefault();
+        event.currentTarget.setPointerCapture(event.pointerId);
         const coordinates = getCoordinates(event);
         const context = contextRef.current;
 
@@ -175,13 +166,16 @@ export default function FirmasDocumentosTrabajadorCreate({
 
         context.beginPath();
         context.moveTo(coordinates.x, coordinates.y);
-        setIsDrawing(true);
+        context.lineTo(coordinates.x, coordinates.y);
+        context.stroke();
+        isDrawingRef.current = true;
+        setHasSignature(true);
         setSignatureError(null);
     };
 
     const draw = (event: SignaturePointerEvent): void => {
         event.preventDefault();
-        if (!isDrawing) {
+        if (!isDrawingRef.current) {
             return;
         }
 
@@ -198,12 +192,20 @@ export default function FirmasDocumentosTrabajadorCreate({
     };
 
     const stopDrawing = (): void => {
-        if (!isDrawing) {
+        if (!isDrawingRef.current) {
             return;
         }
 
         contextRef.current?.closePath();
-        setIsDrawing(false);
+        isDrawingRef.current = false;
+    };
+
+    const stopDrawingWithPointer = (event: SignaturePointerEvent): void => {
+        if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+            event.currentTarget.releasePointerCapture(event.pointerId);
+        }
+
+        stopDrawing();
     };
 
     const clearSignature = (): void => {
@@ -215,6 +217,7 @@ export default function FirmasDocumentosTrabajadorCreate({
         }
 
         context.clearRect(0, 0, canvas.width, canvas.height);
+        isDrawingRef.current = false;
         setHasSignature(false);
         setSignatureError(null);
     };
@@ -242,7 +245,7 @@ export default function FirmasDocumentosTrabajadorCreate({
     };
 
     const openSignatureModal = (): void => {
-        setIsDrawing(false);
+        isDrawingRef.current = false;
         setHasSignature(false);
         setSignatureError(null);
         setIsSignatureModalOpen(true);
@@ -511,14 +514,16 @@ export default function FirmasDocumentosTrabajadorCreate({
                                     ref={canvasRef}
                                     width={1600}
                                     height={700}
-                                    className="h-full min-h-[320px] w-full touch-none bg-white"
-                                    onMouseDown={startDrawing}
-                                    onMouseMove={draw}
-                                    onMouseUp={stopDrawing}
-                                    onMouseLeave={stopDrawing}
-                                    onTouchStart={startDrawing}
-                                    onTouchMove={draw}
-                                    onTouchEnd={stopDrawing}
+                                    className="h-full min-h-[320px] w-full bg-white"
+                                    style={{
+                                        touchAction: 'none',
+                                        cursor: 'crosshair',
+                                    }}
+                                    onPointerDown={startDrawing}
+                                    onPointerMove={draw}
+                                    onPointerUp={stopDrawingWithPointer}
+                                    onPointerLeave={stopDrawingWithPointer}
+                                    onPointerCancel={stopDrawingWithPointer}
                                 />
                             </div>
                         </div>
