@@ -31,6 +31,12 @@ class TrabajadorImportController extends Controller
         try {
             $data = $this->parseFile($file);
 
+            if ($data === []) {
+                return back()->withErrors([
+                    'file' => 'El archivo no contiene filas válidas para importar.',
+                ]);
+            }
+
             $errors = [];
             $imported = 0;
             $skipped = 0;
@@ -94,6 +100,14 @@ class TrabajadorImportController extends Controller
                 }
             });
 
+            if ($imported === 0) {
+                return back()
+                    ->withErrors([
+                        'file' => 'No se pudo importar ningún trabajador. Revise el archivo y corrija las filas omitidas.',
+                    ])
+                    ->with('import_errors', $errors);
+            }
+
             $message = "Importación completada: {$imported} trabajadores importados";
             if ($skipped > 0) {
                 $message .= ", {$skipped} omitidos";
@@ -142,6 +156,7 @@ class TrabajadorImportController extends Controller
         }
 
         // Normalize header keys
+        $header[0] = preg_replace('/^\xEF\xBB\xBF/', '', (string) ($header[0] ?? ''));
         $header = array_map('strtolower', $header);
         $header = array_map('trim', $header);
 
