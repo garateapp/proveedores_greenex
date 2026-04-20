@@ -100,7 +100,7 @@ class FortifyServiceProvider extends ServiceProvider
         // Track successful logins
         Event::listen(function (\Illuminate\Auth\Events\Login $event) {
             $user = $event->user;
-            $request = $event->request;
+            $request = request();
             $userAgent = $request->userAgent() ?? '';
 
             ActivityLog::create([
