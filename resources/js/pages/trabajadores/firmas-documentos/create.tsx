@@ -1,11 +1,32 @@
-import { type FormEventHandler, type MouseEvent, type TouchEvent, useEffect, useRef, useState } from 'react';
-import { Head, Link, useForm } from '@inertiajs/react';
+import { Button } from '@/components/ui/button';
+import {
+    Card,
+    CardContent,
+    CardDescription,
+    CardHeader,
+    CardTitle,
+} from '@/components/ui/card';
+import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogFooter,
+    DialogHeader,
+    DialogTitle,
+} from '@/components/ui/dialog';
 import AppLayout from '@/layouts/app-layout';
 import { type BreadcrumbItem } from '@/types';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { ArrowLeft, Eraser, Save } from 'lucide-react';
-import { type ReactElement } from 'react';
+import { Head, Link, useForm } from '@inertiajs/react';
+import { ArrowLeft, Eraser, PenSquare, Save } from 'lucide-react';
+import {
+    type FormEventHandler,
+    type MouseEvent,
+    type ReactElement,
+    type TouchEvent,
+    useEffect,
+    useRef,
+    useState,
+} from 'react';
 
 interface TrabajadorData {
     id: string;
@@ -39,15 +60,23 @@ interface PaperPreviewSpec {
 
 const breadcrumbs = (trabajadorId: string): BreadcrumbItem[] => [
     { title: 'Personal', href: '/trabajadores' },
-    { title: `Trabajador ${trabajadorId}`, href: `/trabajadores/${trabajadorId}` },
-    { title: 'Firmas Digitales', href: `/trabajadores/${trabajadorId}/firmas-documentos` },
+    {
+        title: `Trabajador ${trabajadorId}`,
+        href: `/trabajadores/${trabajadorId}`,
+    },
+    {
+        title: 'Firmas Digitales',
+        href: `/trabajadores/${trabajadorId}/firmas-documentos`,
+    },
     {
         title: 'Captura de Firma',
         href: `/trabajadores/${trabajadorId}/firmas-documentos`,
     },
 ];
 
-type SignaturePointerEvent = MouseEvent<HTMLCanvasElement> | TouchEvent<HTMLCanvasElement>;
+type SignaturePointerEvent =
+    | MouseEvent<HTMLCanvasElement>
+    | TouchEvent<HTMLCanvasElement>;
 
 const paperPreviewSpec = (paperFormat: string): PaperPreviewSpec => {
     if (paperFormat.toLowerCase() === 'a4') {
@@ -65,17 +94,27 @@ const paperPreviewSpec = (paperFormat: string): PaperPreviewSpec => {
     };
 };
 
-export default function FirmasDocumentosTrabajadorCreate({ trabajador, plantilla, availableVariables }: Props) {
+export default function FirmasDocumentosTrabajadorCreate({
+    trabajador,
+    plantilla,
+    availableVariables,
+}: Props) {
     const canvasRef = useRef<HTMLCanvasElement | null>(null);
     const contextRef = useRef<CanvasRenderingContext2D | null>(null);
     const [isDrawing, setIsDrawing] = useState(false);
     const [hasSignature, setHasSignature] = useState(false);
     const [signatureError, setSignatureError] = useState<string | null>(null);
-    const { post, processing, errors, transform } = useForm({
+    const [isSignatureModalOpen, setIsSignatureModalOpen] = useState(false);
+    const [capturedSignatureUrl, setCapturedSignatureUrl] = useState('');
+    const { data, setData, post, processing, errors } = useForm({
         signature_data_url: '',
     });
 
     useEffect(() => {
+        if (!isSignatureModalOpen) {
+            return;
+        }
+
         const canvas = canvasRef.current;
         if (!canvas) {
             return;
@@ -89,11 +128,14 @@ export default function FirmasDocumentosTrabajadorCreate({ trabajador, plantilla
         context.lineCap = 'round';
         context.lineJoin = 'round';
         context.strokeStyle = '#111827';
-        context.lineWidth = 2.5;
+        context.lineWidth = 3;
+        context.clearRect(0, 0, canvas.width, canvas.height);
         contextRef.current = context;
-    }, []);
+    }, [isSignatureModalOpen]);
 
-    const getCoordinates = (event: SignaturePointerEvent): { x: number; y: number } | null => {
+    const getCoordinates = (
+        event: SignaturePointerEvent,
+    ): { x: number; y: number } | null => {
         const canvas = canvasRef.current;
         if (!canvas) {
             return null;
@@ -177,25 +219,50 @@ export default function FirmasDocumentosTrabajadorCreate({ trabajador, plantilla
         setSignatureError(null);
     };
 
-    const submit: FormEventHandler = (event) => {
-        event.preventDefault();
+    const clearCapturedSignature = (): void => {
+        setCapturedSignatureUrl('');
+        setData('signature_data_url', '');
+        clearSignature();
+    };
+
+    const confirmSignature = (): void => {
         const canvas = canvasRef.current;
 
         if (!canvas || !hasSignature) {
-            setSignatureError('Debe capturar la firma antes de guardar.');
+            setSignatureError('Debe capturar la firma antes de confirmar.');
 
             return;
         }
 
         const signatureDataUrl = canvas.toDataURL('image/png');
-        transform(() => ({
-            signature_data_url: signatureDataUrl,
-        }));
-        post(`/trabajadores/${trabajador.id}/firmas-documentos/${plantilla.id}`, {
-            onFinish: () => {
-                transform((data) => data);
+        setCapturedSignatureUrl(signatureDataUrl);
+        setData('signature_data_url', signatureDataUrl);
+        setSignatureError(null);
+        setIsSignatureModalOpen(false);
+    };
+
+    const openSignatureModal = (): void => {
+        setIsDrawing(false);
+        setHasSignature(false);
+        setSignatureError(null);
+        setIsSignatureModalOpen(true);
+    };
+
+    const submit: FormEventHandler = (event) => {
+        event.preventDefault();
+
+        if (!data.signature_data_url) {
+            setSignatureError('Debe capturar la firma antes de guardar.');
+
+            return;
+        }
+
+        post(
+            `/trabajadores/${trabajador.id}/firmas-documentos/${plantilla.id}`,
+            {
+                preserveScroll: true,
             },
-        });
+        );
     };
 
     const documentPreviewStyle = {
@@ -220,7 +287,9 @@ export default function FirmasDocumentosTrabajadorCreate({ trabajador, plantilla
 
             <div className="space-y-6">
                 <div className="flex flex-wrap items-center gap-3">
-                    <Link href={`/trabajadores/${trabajador.id}/firmas-documentos`}>
+                    <Link
+                        href={`/trabajadores/${trabajador.id}/firmas-documentos`}
+                    >
                         <Button variant="ghost" size="sm">
                             <ArrowLeft className="mr-2 h-4 w-4" />
                             Volver
@@ -232,15 +301,19 @@ export default function FirmasDocumentosTrabajadorCreate({ trabajador, plantilla
                     <CardHeader>
                         <CardTitle>{plantilla.nombre}</CardTitle>
                         <CardDescription>
-                            {plantilla.tipo_documento_nombre} ({plantilla.tipo_documento_codigo})
+                            {plantilla.tipo_documento_nombre} (
+                            {plantilla.tipo_documento_codigo})
                         </CardDescription>
                     </CardHeader>
                     <CardContent className="space-y-2">
                         <p className="text-sm text-muted-foreground">
-                            Trabajador: {trabajador.nombre_completo} ({trabajador.documento})
+                            Trabajador: {trabajador.nombre_completo} (
+                            {trabajador.documento})
                         </p>
                         <div className="rounded-md border border-border bg-muted/20 p-3">
-                            <p className="text-xs font-medium text-muted-foreground">Variables soportadas</p>
+                            <p className="text-xs font-medium text-muted-foreground">
+                                Variables soportadas
+                            </p>
                             <div className="mt-2 flex flex-wrap gap-2">
                                 {availableVariables.map((variable) => (
                                     <span
@@ -259,16 +332,23 @@ export default function FirmasDocumentosTrabajadorCreate({ trabajador, plantilla
                     <CardHeader>
                         <CardTitle>Documento a firmar</CardTitle>
                         <CardDescription>
-                            Revise el contenido final antes de capturar la firma. Formato PDF: {plantilla.formato_papel.toUpperCase()}.
+                            Revise el contenido final antes de capturar la
+                            firma. Formato PDF:{' '}
+                            {plantilla.formato_papel.toUpperCase()}.
                         </CardDescription>
                     </CardHeader>
                     <CardContent>
                         <div className="overflow-x-auto rounded-md border border-dashed border-border bg-muted/30 p-4">
-                            <div className="mx-auto bg-white shadow-sm" style={previewPaperStyle}>
+                            <div
+                                className="mx-auto bg-white shadow-sm"
+                                style={previewPaperStyle}
+                            >
                                 <div
                                     className="document-preview-content max-w-none"
                                     style={previewDocumentStyle}
-                                    dangerouslySetInnerHTML={{ __html: plantilla.rendered_html }}
+                                    dangerouslySetInnerHTML={{
+                                        __html: plantilla.rendered_html,
+                                    }}
                                 />
                             </div>
                         </div>
@@ -323,17 +403,115 @@ export default function FirmasDocumentosTrabajadorCreate({ trabajador, plantilla
                     <CardHeader>
                         <CardTitle>Captura de firma</CardTitle>
                         <CardDescription>
-                            El trabajador debe firmar en el recuadro. La fecha de firma se fija al guardar.
+                            Abra el modal de firma para capturarla con más
+                            espacio y sin que el scroll interfiera en tablet.
                         </CardDescription>
                     </CardHeader>
                     <CardContent>
                         <form onSubmit={submit} className="space-y-4">
-                            <div className="overflow-hidden rounded-md border border-border">
+                            <div className="rounded-lg border border-dashed border-border bg-muted/20 p-4">
+                                <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+                                    <div className="space-y-1">
+                                        <p className="text-sm font-medium text-foreground">
+                                            Firma del trabajador
+                                        </p>
+                                        <p className="text-sm text-muted-foreground">
+                                            {capturedSignatureUrl
+                                                ? 'La firma fue capturada y está lista para generar el PDF.'
+                                                : 'Abra el modal para firmar con una superficie amplia.'}
+                                        </p>
+                                    </div>
+                                    <div className="flex flex-col gap-2 sm:flex-row">
+                                        <Button
+                                            type="button"
+                                            variant={
+                                                capturedSignatureUrl
+                                                    ? 'outline'
+                                                    : 'default'
+                                            }
+                                            onClick={openSignatureModal}
+                                        >
+                                            <PenSquare className="mr-2 h-4 w-4" />
+                                            {capturedSignatureUrl
+                                                ? 'Volver a firmar'
+                                                : 'Abrir modal de firma'}
+                                        </Button>
+                                        <Button
+                                            type="button"
+                                            variant="outline"
+                                            onClick={clearCapturedSignature}
+                                            disabled={
+                                                !capturedSignatureUrl ||
+                                                processing
+                                            }
+                                        >
+                                            <Eraser className="mr-2 h-4 w-4" />
+                                            Limpiar firma
+                                        </Button>
+                                    </div>
+                                </div>
+
+                                <div className="mt-4 overflow-hidden rounded-md border border-border bg-white">
+                                    {capturedSignatureUrl ? (
+                                        <img
+                                            src={capturedSignatureUrl}
+                                            alt="Vista previa de la firma"
+                                            className="h-40 w-full object-contain"
+                                        />
+                                    ) : (
+                                        <div className="flex h-40 items-center justify-center px-6 text-center text-sm text-muted-foreground">
+                                            Aún no hay una firma confirmada.
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+
+                            {(signatureError || errors.signature_data_url) && (
+                                <p className="text-sm text-destructive">
+                                    {signatureError ||
+                                        errors.signature_data_url}
+                                </p>
+                            )}
+
+                            <div className="flex gap-3">
+                                <Button type="submit" disabled={processing}>
+                                    <Save className="mr-2 h-4 w-4" />
+                                    Guardar firma y generar PDF
+                                </Button>
+                            </div>
+                        </form>
+                    </CardContent>
+                </Card>
+            </div>
+
+            <Dialog
+                open={isSignatureModalOpen}
+                onOpenChange={setIsSignatureModalOpen}
+            >
+                <DialogContent className="flex h-[92vh] max-h-[92vh] w-[96vw] max-w-5xl flex-col gap-0 overflow-hidden p-0 sm:h-[88vh]">
+                    <DialogHeader className="border-b border-border px-6 py-4">
+                        <DialogTitle>Captura de firma</DialogTitle>
+                        <DialogDescription>
+                            Pida al trabajador que firme dentro del recuadro. El
+                            modal reduce el scroll accidental en tablet.
+                        </DialogDescription>
+                    </DialogHeader>
+
+                    <div className="flex-1 overflow-hidden bg-muted/30 p-4 sm:p-6">
+                        <div className="flex h-full flex-col gap-4">
+                            <div className="rounded-md border border-border bg-background px-4 py-3 text-sm text-muted-foreground">
+                                Trabajador:{' '}
+                                <span className="font-medium text-foreground">
+                                    {trabajador.nombre_completo}
+                                </span>
+                            </div>
+
+                            <div className="flex-1 overflow-hidden rounded-xl border border-border bg-white shadow-sm">
                                 <canvas
                                     ref={canvasRef}
-                                    width={1200}
-                                    height={300}
-                                    className="h-56 w-full bg-white"
+                                    width={1600}
+                                    height={700}
+                                    className="h-full min-h-[320px] w-full touch-none bg-white"
                                     onMouseDown={startDrawing}
                                     onMouseMove={draw}
                                     onMouseUp={stopDrawing}
@@ -343,31 +521,45 @@ export default function FirmasDocumentosTrabajadorCreate({ trabajador, plantilla
                                     onTouchEnd={stopDrawing}
                                 />
                             </div>
+                        </div>
+                    </div>
 
-                            {(signatureError || errors.signature_data_url) && (
-                                <p className="text-sm text-destructive">
-                                    {signatureError || errors.signature_data_url}
-                                </p>
-                            )}
-
-                            <div className="flex gap-3">
-                                <Button type="submit" disabled={processing}>
-                                    <Save className="mr-2 h-4 w-4" />
-                                    Guardar firma y generar PDF
-                                </Button>
-                                <Button type="button" variant="outline" onClick={clearSignature} disabled={processing}>
-                                    <Eraser className="mr-2 h-4 w-4" />
-                                    Limpiar
-                                </Button>
-                            </div>
-                        </form>
-                    </CardContent>
-                </Card>
-            </div>
+                    <DialogFooter className="border-t border-border px-6 py-4 sm:justify-between">
+                        <Button
+                            type="button"
+                            variant="outline"
+                            onClick={clearSignature}
+                            disabled={processing}
+                        >
+                            <Eraser className="mr-2 h-4 w-4" />
+                            Limpiar trazo
+                        </Button>
+                        <div className="flex flex-col gap-2 sm:flex-row">
+                            <Button
+                                type="button"
+                                variant="outline"
+                                onClick={() => setIsSignatureModalOpen(false)}
+                                disabled={processing}
+                            >
+                                Cerrar
+                            </Button>
+                            <Button
+                                type="button"
+                                onClick={confirmSignature}
+                                disabled={processing}
+                            >
+                                Confirmar firma
+                            </Button>
+                        </div>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
         </>
     );
 }
 
 FirmasDocumentosTrabajadorCreate.layout = (page: ReactElement<Props>) => (
-    <AppLayout breadcrumbs={breadcrumbs(page.props.trabajador.id)}>{page}</AppLayout>
+    <AppLayout breadcrumbs={breadcrumbs(page.props.trabajador.id)}>
+        {page}
+    </AppLayout>
 );

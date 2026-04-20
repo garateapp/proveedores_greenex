@@ -181,20 +181,17 @@ class ActivityLogApiTest extends TestCase
 
     public function test_login_event_is_tracked(): void
     {
-        // This test requires Fortify events to be properly configured in test environment
-        // Manual testing recommended: Login as a user and check activity_logs table
-        $this->markTestSkipped('Login event tracking requires manual verification in test environment');
-
         $user = User::factory()->withoutTwoFactor()->create([
             'email_verified_at' => now(),
         ]);
 
-        $response = $this->post(route('login.store'), [
+        $response = $this->from(route('login'))->post(route('login.store'), [
             'email' => $user->email,
             'password' => 'password',
         ]);
 
-        // Check that activity log was created (login tracking works)
+        $response->assertRedirect(route('dashboard', absolute: false));
+
         $this->assertDatabaseHas('activity_logs', [
             'user_id' => $user->id,
             'event' => 'login',

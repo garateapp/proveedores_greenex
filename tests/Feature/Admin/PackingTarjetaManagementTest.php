@@ -161,4 +161,66 @@ class PackingTarjetaManagementTest extends TestCase
             ])
             ->assertForbidden();
     }
+
+    public function test_admin_can_export_inventory_report_as_csv(): void
+    {
+        Carbon::setTestNow(Carbon::parse('2026-04-06 12:00:00'));
+
+        $admin = User::factory()->create([
+            'role' => UserRole::Admin,
+        ]);
+
+        $contratista = Contratista::factory()->create([
+            'razon_social' => 'Packing Verde SpA',
+        ]);
+
+        $trabajador = Trabajador::create([
+            'id' => '33333333',
+            'documento' => '33333333-3',
+            'nombre' => 'Carla',
+            'apellido' => 'Rojas',
+            'contratista_id' => $contratista->id,
+            'estado' => 'activo',
+            'fecha_ingreso' => now()->toDateString(),
+        ]);
+
+        $tarjetaAsignada = TarjetaQr::create([
+            'numero_serie' => 'PACK-2001',
+            'codigo_qr' => 'QR-PACK-2001',
+            'estado' => 'asignada',
+            'observaciones' => 'Tarjeta operativa',
+        ]);
+
+        $tarjetaDisponible = TarjetaQr::create([
+            'numero_serie' => 'PACK-2002',
+            'codigo_qr' => 'QR-PACK-2002',
+            'estado' => 'disponible',
+            'observaciones' => null,
+        ]);
+
+        $this->actingAs($admin)
+            ->post("/admin/packing/tarjetas/{$tarjetaAsignada->id}/asignaciones", [
+                'trabajador_id' => $trabajador->id,
+                'asignada_en' => '2026-04-06 12:00:00',
+            ])
+            ->assertRedirect('/admin/packing/tarjetas');
+
+        $response = $this->actingAs($admin)
+            ->get('/admin/packing/tarjetas/export?estado=asignada');
+
+        $response->assertOk();
+        $response->assertHeader('content-type', 'text/csv; charset=UTF-8');
+        $response->assertHeader('content-disposition', 'attachment; filename="packing_tarjetas_2026-04-06.csv"');
+        $this->assertStringContainsString(
+            'numero_serie;codigo_qr;estado;trabajador_rut;trabajador_nombre;contratista;asignada_en;observaciones',
+            $response->streamedContent(),
+        );
+        $this->assertStringContainsString(
+            'PACK-2001;QR-PACK-2001;asignada;33333333-3;"Carla Rojas";"Packing Verde SpA";"2026-04-06 12:00:00";"Tarjeta operativa"',
+            $response->streamedContent(),
+        );
+        $this->assertStringNotContainsString('PACK-2002', $response->streamedContent());
+
+        Carbon::setTestNow();
+    }
 }

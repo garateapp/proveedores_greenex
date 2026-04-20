@@ -123,4 +123,56 @@ class TrabajadorImportTest extends TestCase
             'documento' => '12345678-5',
         ]);
     }
+
+    public function test_import_accepts_csv_with_utf8_bom_header(): void
+    {
+        $contratista = Contratista::factory()->create();
+        $user = User::factory()->create([
+            'role' => UserRole::Contratista,
+            'contratista_id' => $contratista->id,
+        ]);
+
+        $file = UploadedFile::fake()->createWithContent(
+            'trabajadores.csv',
+            "\xEF\xBB\xBFid;nombre;apellido;documento\n12345678;Juan;Perez;12345678-5\n",
+        );
+
+        $this->actingAs($user)
+            ->from(route('trabajadores.index'))
+            ->post(route('trabajadores.import'), [
+                'file' => $file,
+            ])
+            ->assertRedirect(route('trabajadores.index'))
+            ->assertSessionHasNoErrors();
+
+        $this->assertDatabaseHas(Trabajador::class, [
+            'id' => '12345678',
+            'contratista_id' => $contratista->id,
+            'documento' => '12345678-5',
+        ]);
+    }
+
+    public function test_import_returns_file_error_when_all_rows_are_skipped(): void
+    {
+        $contratista = Contratista::factory()->create();
+        $user = User::factory()->create([
+            'role' => UserRole::Contratista,
+            'contratista_id' => $contratista->id,
+        ]);
+
+        $file = UploadedFile::fake()->createWithContent(
+            'trabajadores.csv',
+            "id;nombre;apellido;documento\n12345678;Juan;Perez;12345678-4\n",
+        );
+
+        $this->actingAs($user)
+            ->from(route('trabajadores.index'))
+            ->post(route('trabajadores.import'), [
+                'file' => $file,
+            ])
+            ->assertRedirect(route('trabajadores.index'))
+            ->assertSessionHasErrors('file');
+
+        $this->assertDatabaseCount('trabajadores', 0);
+    }
 }

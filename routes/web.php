@@ -111,6 +111,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
         Route::prefix('packing')->name('packing.')->group(function () {
             Route::get('tarjetas', [PackingTarjetaController::class, 'index'])->name('tarjetas.index');
+            Route::get('tarjetas/export', [PackingTarjetaController::class, 'export'])->name('tarjetas.export');
             Route::post('tarjetas', [PackingTarjetaController::class, 'store'])->name('tarjetas.store');
             Route::post('tarjetas/{tarjeta}/asignaciones', [PackingTarjetaAsignacionController::class, 'store'])->name('tarjetas.asignaciones.store');
             Route::get('marcaciones', [PackingMarcacionController::class, 'index'])->name('marcaciones.index');
