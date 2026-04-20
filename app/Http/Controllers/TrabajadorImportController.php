@@ -2,28 +2,19 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\TrabajadorImportRequest;
 use App\Models\Trabajador;
-use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
 
 class TrabajadorImportController extends Controller
 {
     /**
-     * Import trabajadores from Excel/CSV file.
+     * Import trabajadores from CSV file.
      */
-    public function import(Request $request)
+    public function import(TrabajadorImportRequest $request)
     {
         $user = $request->user();
-        $rules = [
-            'file' => ['required', 'file', 'mimes:xlsx,xls,csv', 'max:10240'],
-        ];
-
-        if ($user->isAdmin()) {
-            $rules['contratista_id'] = ['required', 'integer', 'exists:contratistas,id'];
-        }
-
-        $request->validate($rules);
 
         $contratistaId = $user->isAdmin()
             ? (int) $request->input('contratista_id')
@@ -118,7 +109,7 @@ class TrabajadorImportController extends Controller
     }
 
     /**
-     * Parse Excel/CSV file to array.
+     * Parse CSV file to array.
      */
     private function parseFile($file): array
     {
@@ -128,8 +119,6 @@ class TrabajadorImportController extends Controller
             return $this->parseCsv($file);
         }
 
-        // For Excel files, we'd use a library like PhpSpreadsheet
-        // For now, we'll just support CSV
         throw new \Exception('Solo se soportan archivos CSV en esta versión');
     }
 

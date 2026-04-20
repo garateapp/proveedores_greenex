@@ -93,4 +93,34 @@ class TrabajadorImportTest extends TestCase
             'documento' => '87654321-4',
         ]);
     }
+
+    public function test_import_accepts_csv_files_reported_as_text_plain(): void
+    {
+        $contratista = Contratista::factory()->create();
+        $user = User::factory()->create([
+            'role' => UserRole::Contratista,
+            'contratista_id' => $contratista->id,
+        ]);
+
+        $file = UploadedFile::fake()
+            ->createWithContent(
+                'trabajadores.csv',
+                "id;nombre;apellido;documento\n12345678;Ana;Lopez;12345678-5\n",
+            )
+            ->mimeType('text/plain');
+
+        $this->actingAs($user)
+            ->from(route('trabajadores.index'))
+            ->post(route('trabajadores.import'), [
+                'file' => $file,
+            ])
+            ->assertRedirect(route('trabajadores.index'))
+            ->assertSessionHasNoErrors();
+
+        $this->assertDatabaseHas(Trabajador::class, [
+            'id' => '12345678',
+            'contratista_id' => $contratista->id,
+            'documento' => '12345678-5',
+        ]);
+    }
 }
