@@ -5,6 +5,7 @@ use App\Http\Controllers\Admin\PackingMarcacionController;
 use App\Http\Controllers\Admin\PackingTarjetaAsignacionController;
 use App\Http\Controllers\Admin\PackingTarjetaController;
 use App\Http\Controllers\Admin\PlantillaDocumentoTrabajadorController;
+use App\Http\Controllers\Admin\TurnoController;
 use App\Http\Controllers\CentroCargaController;
 use App\Http\Controllers\ContratistaDashboardController;
 use App\Http\Controllers\ContratistaRegistrationController;
@@ -117,6 +118,10 @@ Route::middleware(['auth', 'verified'])->group(function () {
             Route::get('marcaciones', [PackingMarcacionController::class, 'index'])->name('marcaciones.index');
             Route::post('sync', [PackingSyncController::class, 'store'])->name('sync.store');
         });
+
+        Route::post('turnos/clone', [TurnoController::class, 'cloneFromDate'])->name('turnos.clone');
+        Route::resource('turnos', TurnoController::class)
+            ->except(['create', 'edit', 'show']);
 
         // Gestión de ubicaciones
         Route::resource('ubicaciones', \App\Http\Controllers\Admin\UbicacionController::class)

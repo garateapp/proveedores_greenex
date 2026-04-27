@@ -41,3 +41,9 @@ toArray())
 .github/workflows/lint.yml
 .gemini/settings.json
 package-lock.json
+package-lock.json
+.gitignore
+.qwen/settings.json.orig
+debug_header.php
+.qwen/settings.json
+package-lock.json

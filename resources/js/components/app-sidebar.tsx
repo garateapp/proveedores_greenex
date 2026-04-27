@@ -79,6 +79,11 @@ export function AppSidebar() {
                   icon: MapPin,
               },
               {
+                  title: 'Turnos',
+                  href: '/admin/turnos',
+                  icon: Clock,
+              },
+              {
                   title: 'Tarjetas QR',
                   href: '/admin/packing/tarjetas',
                   icon: Clock,

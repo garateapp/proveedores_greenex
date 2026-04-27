@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Api\ActivityLogController;
 use App\Http\Controllers\Api\AsistenciaQrController;
+use App\Http\Controllers\Api\ControlAccessLogIngestController;
 use App\Http\Controllers\Api\UbicacionController;
 use Illuminate\Support\Facades\Route;
 
@@ -14,6 +15,8 @@ use Illuminate\Support\Facades\Route;
 | routes are loaded by the Application and given a URI prefix of "/api".
 |
 */
+
+Route::post('/control-access-logs', [ControlAccessLogIngestController::class, 'store']);
 
 // Public ubicaciones routes for mobile app
 Route::prefix('v1')->group(function () {
