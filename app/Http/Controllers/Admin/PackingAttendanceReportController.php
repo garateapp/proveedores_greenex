@@ -22,7 +22,8 @@ class PackingAttendanceReportController extends Controller
             rows: $report['rows'],
             turnoId: isset($validated['turno_id']) ? (int) $validated['turno_id'] : null,
             status: $validated['status'] ?? null,
-        );
+        )->filter(fn (array $row): bool => $row['contratista'] !== null)
+            ->values();
 
         $summary = $service->buildSummary($rows);
 

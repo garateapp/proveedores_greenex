@@ -149,7 +149,7 @@ class PackingAttendanceReportService
     private function resolveTurnoWindow(Turno $turno): array
     {
         $timezone = config('app.timezone', 'America/Santiago');
-        $turnoDate = $turno->fecha?->copy()->timezone($timezone)->toDateString();
+        $turnoDate = $turno->fecha?->toDateString();
         $horaInicio = $turno->hora_inicio?->format('H:i:s');
         $horaFin = $turno->hora_fin?->format('H:i:s');
 
@@ -214,7 +214,7 @@ class PackingAttendanceReportService
 
         return $dates->contains(
             fn (Carbon $date): bool => $date->gte($turnoInicio) && $date->lt($turnoFin),
-        );
+        ) || ($log->fecha?->isSameDay($turnoInicio) ?? false);
     }
 
     private function buildRow(
