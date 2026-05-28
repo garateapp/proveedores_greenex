@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Admin;
 
+use App\Exports\PackingAttendanceReportExport;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Admin\PackingAttendanceReportRequest;
 use App\Services\PackingAttendanceReportService;
@@ -9,6 +10,7 @@ use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 use Inertia\Inertia;
 use Inertia\Response;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class PackingAttendanceReportController extends Controller
 {
@@ -64,6 +66,42 @@ class PackingAttendanceReportController extends Controller
                     'label' => 'Marcaciones multiples',
                 ],
             ],
+        ]);
+    }
+
+    public function export(
+        PackingAttendanceReportRequest $request,
+        PackingAttendanceReportService $service,
+    ): StreamedResponse {
+        $validated = $request->validated();
+        $report = $service->buildForDate($request->reportDate());
+        $rows = $this->filterRows(
+            rows: $report['rows'],
+            turnoId: isset($validated['turno_id']) ? (int) $validated['turno_id'] : null,
+            status: $validated['status'] ?? null,
+        )->filter(fn (array $row): bool => $row['contratista'] !== null)
+            ->values();
+
+        $report['rows'] = $rows;
+        $report['summary'] = $service->buildSummary($rows);
+        $report['totals_by_turno'] = $service->buildTotalsByTurno($rows);
+        $report['totals_by_group'] = $service->buildTotalsByGroup($rows);
+
+        $export = new PackingAttendanceReportExport(
+            report: $report,
+            date: $report['date']->toDateString(),
+        );
+
+        $writer = $export->build();
+        $filename = "reporte-asistencia-packing-{$report['date']->toDateString()}.xlsx";
+
+        $callback = function () use ($writer): void {
+            $writer->save('php://output');
+        };
+
+        return new StreamedResponse($callback, 200, [
+            'Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            'Content-Disposition' => "attachment; filename=\"{$filename}\"",
         ]);
     }
 

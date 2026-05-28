@@ -31,6 +31,7 @@ import {
     CheckCircle2,
     Clock,
     CopyCheck,
+    FileDown,
     Filter,
     RefreshCcw,
     Search,
@@ -281,6 +282,14 @@ export default function PackingAttendanceReportIndex({
         );
     };
 
+    const exportUrl = useMemo(() => {
+        const params = new URLSearchParams();
+        params.set('date', date);
+        if (turnoId !== 'all') params.set('turno_id', turnoId);
+        if (status !== 'all') params.set('status', status);
+        return `/admin/packing/asistencia-reporte/export?${params.toString()}`;
+    }, [date, turnoId, status]);
+
     const handleClear = () => {
         setDate(filters.date);
         setTurnoId('all');
@@ -307,10 +316,18 @@ export default function PackingAttendanceReportIndex({
                             Cruce entre marcaciones app, control de acceso y turnos configurados.
                         </p>
                     </div>
-                    <Button variant="outline" onClick={handleSearch}>
-                        <RefreshCcw className="mr-2 h-4 w-4" />
-                        Actualizar
-                    </Button>
+                    <div className="flex gap-2">
+                        <Button variant="outline" asChild>
+                            <a href={exportUrl}>
+                                <FileDown className="mr-2 h-4 w-4" />
+                                Exportar
+                            </a>
+                        </Button>
+                        <Button variant="outline" onClick={handleSearch}>
+                            <RefreshCcw className="mr-2 h-4 w-4" />
+                            Actualizar
+                        </Button>
+                    </div>
                 </div>
 
                 <Card>
