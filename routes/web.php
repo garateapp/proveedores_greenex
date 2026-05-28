@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Admin\AuditLogController;
+use App\Http\Controllers\Admin\PackingAttendanceReportController;
 use App\Http\Controllers\Admin\PackingMarcacionController;
 use App\Http\Controllers\Admin\PackingTarjetaAsignacionController;
 use App\Http\Controllers\Admin\PackingTarjetaController;
@@ -116,6 +117,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
             Route::post('tarjetas', [PackingTarjetaController::class, 'store'])->name('tarjetas.store');
             Route::post('tarjetas/{tarjeta}/asignaciones', [PackingTarjetaAsignacionController::class, 'store'])->name('tarjetas.asignaciones.store');
             Route::get('marcaciones', [PackingMarcacionController::class, 'index'])->name('marcaciones.index');
+            Route::get('asistencia-reporte', [PackingAttendanceReportController::class, 'index'])->name('asistencia-reporte.index');
             Route::post('sync', [PackingSyncController::class, 'store'])->name('sync.store');
         });
 

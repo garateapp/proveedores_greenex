@@ -15,6 +15,7 @@ import { type NavItem, type NavSection, type SharedData } from '@/types';
 import { Link, usePage } from '@inertiajs/react';
 import {
     Building2,
+    ClipboardCheck,
     ClipboardList,
     Clock,
     CreditCard,
@@ -153,6 +154,15 @@ export function AppSidebar() {
             href: '/herramientas/cuadratura-asistencia',
             icon: Wrench,
         },
+        ...(isAdmin
+            ? [
+                  {
+                      title: 'Reporte asistencia packing',
+                      href: '/admin/packing/asistencia-reporte',
+                      icon: ClipboardCheck,
+                  },
+              ]
+            : []),
     ];
 
     const navSections: NavSection[] = [
