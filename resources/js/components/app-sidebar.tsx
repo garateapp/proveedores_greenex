@@ -141,7 +141,7 @@ export function AppSidebar() {
             href: '/centro-carga-contratistas',
             icon: UploadCloud,
         },
-        ...(isAdmin
+        ...(isAdmin || isSupervisor
             ? [
                   {
                       title: 'Aprobaciones',

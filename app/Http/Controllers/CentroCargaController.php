@@ -252,7 +252,11 @@ class CentroCargaController extends Controller
      *         dias_vencimiento: int|null,
      *         palabras_clave: array<int, string>
      *     }>,
-     *     tipos_documentos_cargados: array<int, int>,
+     *     tipos_documentos_cargados: array<int, array{
+     *         tipo_documento_id: int,
+     *         estado: string,
+     *         motivo_rechazo: string|null
+     *     }>,
      *     sin_faena_activa: bool
      * }
      */
@@ -311,8 +315,13 @@ class CentroCargaController extends Controller
             ->whereHas('tipoDocumento', function ($query) {
                 $query->where('permite_multiples_en_mes', false);
             })
-            ->pluck('tipo_documento_id')
-            ->map(fn ($id) => (int) $id)
+            ->select(['tipo_documento_id', 'estado', 'motivo_rechazo'])
+            ->get()
+            ->map(fn (Documento $doc) => [
+                'tipo_documento_id' => (int) $doc->tipo_documento_id,
+                'estado' => $doc->estado,
+                'motivo_rechazo' => $doc->motivo_rechazo,
+            ])
             ->values()
             ->all();
 
@@ -336,7 +345,11 @@ class CentroCargaController extends Controller
      *         dias_vencimiento: int|null,
      *         palabras_clave: array<int, string>
      *     }>,
-     *     tipos_documentos_cargados: array<int, int>,
+     *     tipos_documentos_cargados: array<int, array{
+     *         tipo_documento_id: int,
+     *         estado: string,
+     *         motivo_rechazo: string|null
+     *     }>,
      *     sin_faena_activa: bool
      * }
      */
@@ -387,8 +400,13 @@ class CentroCargaController extends Controller
                 fn ($query) => $query->whereNull('periodo_mes'),
                 fn ($query) => $query->where('periodo_mes', $periodoMes),
             )
-            ->pluck('tipo_documento_id')
-            ->map(fn ($id) => (int) $id)
+            ->select(['tipo_documento_id', 'estado', 'motivo_rechazo'])
+            ->get()
+            ->map(fn (Documento $doc) => [
+                'tipo_documento_id' => (int) $doc->tipo_documento_id,
+                'estado' => $doc->estado,
+                'motivo_rechazo' => $doc->motivo_rechazo,
+            ])
             ->values()
             ->all();
 

@@ -1,5 +1,9 @@
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
+import {
+    Badge,
+} from '@/components/ui/badge';
+import {
+    Button,
+} from '@/components/ui/button';
 import {
     Card,
     CardContent,
@@ -29,9 +33,22 @@ import {
     TableHeader,
     TableRow,
 } from '@/components/ui/table';
+import {
+    Tooltip,
+    TooltipContent,
+    TooltipTrigger,
+} from '@/components/ui/tooltip';
 import AppLayout from '@/layouts/app-layout';
-import { type BreadcrumbItem, type SharedData } from '@/types';
-import { Head, Link, router, usePage } from '@inertiajs/react';
+import {
+    type BreadcrumbItem,
+    type SharedData,
+} from '@/types';
+import {
+    Head,
+    Link,
+    router,
+    usePage,
+} from '@inertiajs/react';
 import {
     AlertCircle,
     CheckCircle,
@@ -39,6 +56,7 @@ import {
     Download,
     Eye,
     FileText,
+    Info,
     Upload,
     XCircle,
 } from 'lucide-react';
@@ -80,6 +98,7 @@ interface Documento {
     estado: 'pendiente_validacion' | 'aprobado' | 'rechazado' | 'vencido';
     fecha_vencimiento: string | null;
     observaciones: string | null;
+    motivo_rechazo: string | null;
     tipo_documento: TipoDocumento;
     contratista: Contratista;
     created_at: string;
@@ -451,14 +470,29 @@ export default function DocumentosIndex({
                                                             .razon_social}
                                                 </TableCell>
                                                 <TableCell>
-                                                    <Badge
-                                                        variant={
-                                                            estadoConfig.variant
-                                                        }
-                                                    >
-                                                        <EstadoIcon className="mr-1 size-3" />
-                                                        {estadoConfig.label}
-                                                    </Badge>
+                                                    <div className="flex items-center gap-1">
+                                                        <Badge
+                                                            variant={
+                                                                estadoConfig.variant
+                                                            }
+                                                        >
+                                                            <EstadoIcon className="mr-1 size-3" />
+                                                            {estadoConfig.label}
+                                                        </Badge>
+                                                        {documento.estado === 'rechazado' && documento.motivo_rechazo && (
+                                                            <Tooltip>
+                                                                <TooltipTrigger asChild>
+                                                                    <button type="button" className="cursor-help">
+                                                                        <Info className="size-3.5 text-destructive" />
+                                                                    </button>
+                                                                </TooltipTrigger>
+                                                                <TooltipContent side="right" className="max-w-xs text-xs">
+                                                                    <p className="font-medium mb-0.5">Motivo del rechazo:</p>
+                                                                    <p>{documento.motivo_rechazo}</p>
+                                                                </TooltipContent>
+                                                            </Tooltip>
+                                                        )}
+                                                    </div>
                                                 </TableCell>
                                                 <TableCell className="text-sm">
                                                     {new Date(

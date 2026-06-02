@@ -65,9 +65,15 @@ interface TipoDocumentoRequirement {
     palabras_clave: string[];
 }
 
+interface CargadoInfo {
+    tipo_documento_id: number;
+    estado: string;
+    motivo_rechazo: string | null;
+}
+
 interface RequirementsResponse {
     tipos_documentos: TipoDocumentoRequirement[];
-    tipos_documentos_cargados: number[];
+    tipos_documentos_cargados: CargadoInfo[];
     sin_faena_activa: boolean;
 }
 
@@ -364,26 +370,95 @@ function ProgressBar({
 
 function RequirementTarget({
     requirement,
-    isUploaded,
+    uploadedInfo,
     matchedCount,
 }: {
     requirement: TipoDocumentoRequirement;
-    isUploaded: boolean;
+    uploadedInfo: CargadoInfo | null;
     matchedCount: number;
 }) {
     const { setNodeRef, isOver } = useDroppable({
         id: `target-${requirement.id}`,
-        disabled: isUploaded,
+        disabled: uploadedInfo !== null,
     });
+
+    const isUploaded = uploadedInfo !== null;
+
+    const badge = (() => {
+        if (!isUploaded) {
+            if (requirement.es_obligatorio) {
+                return (
+                    <Badge
+                        variant="secondary"
+                        className="bg-amber-100 text-amber-800 hover:bg-amber-100"
+                    >
+                        Obligatorio
+                    </Badge>
+                );
+            }
+
+            return (
+                <Badge
+                    variant="outline"
+                    className="border-amber-300 text-amber-700"
+                >
+                    Opcional
+                </Badge>
+            );
+        }
+
+        if (uploadedInfo.estado === 'rechazado') {
+            return (
+                <div className="flex flex-col items-end gap-0.5">
+                    <Badge className="bg-red-100 text-red-700 hover:bg-red-100">
+                        Rechazado
+                    </Badge>
+                    {uploadedInfo.motivo_rechazo && (
+                        <span className="max-w-40 text-right text-[10px] leading-tight text-red-600">
+                            {uploadedInfo.motivo_rechazo}
+                        </span>
+                    )}
+                </div>
+            );
+        }
+
+        if (uploadedInfo.estado === 'aprobado') {
+            return (
+                <Badge className="bg-[var(--brand-green)] text-[var(--primary-foreground)]">
+                    Aprobado
+                </Badge>
+            );
+        }
+
+        return (
+            <Badge className="bg-sky-100 text-sky-700 hover:bg-sky-100">
+                Cargado
+            </Badge>
+        );
+    })();
+
+    const borderClass = (() => {
+        if (!isUploaded) {
+            return 'border-border/70';
+        }
+
+        if (uploadedInfo.estado === 'rechazado') {
+            return 'border-red-200 bg-red-50/50';
+        }
+
+        if (uploadedInfo.estado === 'aprobado') {
+            return 'border-[var(--brand-green)]/35 bg-[var(--brand-lime)]/10';
+        }
+
+        return 'border-sky-200 bg-sky-50/50';
+    })();
 
     return (
         <div
             ref={setNodeRef}
             className={cn(
                 'rounded-xl border bg-white/75 p-3 transition',
-                isUploaded
-                    ? 'border-[var(--brand-green)]/35 bg-[var(--brand-lime)]/10'
-                    : 'border-border/70',
+                borderClass,
                 isOver &&
                     !isUploaded &&
                     'border-[var(--brand-orange)] bg-[var(--brand-orange)]/10',
@@ -398,15 +473,7 @@ function RequirementTarget({
                         {requirement.codigo}
                     </p>
                 </div>
-                {isUploaded ? (
-                    <Badge className="bg-[var(--brand-green)] text-[var(--primary-foreground)]">
-                        Cargado
-                    </Badge>
-                ) : requirement.es_obligatorio ? (
-                    <Badge variant="secondary">Obligatorio</Badge>
-                ) : (
-                    <Badge variant="outline">Opcional</Badge>
-                )}
+                {badge}
             </div>
 
             <div className="mt-2 flex items-center justify-between text-xs text-muted-foreground">
@@ -430,7 +497,7 @@ function UploadFileCard({
 }: {
     item: CargaArchivoItem;
     requirements: TipoDocumentoRequirement[];
-    uploadedTipoIds: Set<number>;
+    uploadedTipoIds: Map<number, CargadoInfo>;
     onRemove: (id: string) => void;
     onConfirmSuggestion: (id: string) => void;
     onMatchChange: (id: string, tipoDocumentoId: number | null) => void;
@@ -885,7 +952,7 @@ export default function CentroCarga({
 
     const selectedWorkerId = selectedTrabajador?.id ?? '';
     const uploadedTipoIdsSet = useMemo(
-        () => new Set(requirements.tipos_documentos_cargados),
+        () => new Map(requirements.tipos_documentos_cargados.map((d) => [d.tipo_documento_id, d])),
         [requirements.tipos_documentos_cargados],
     );
 
@@ -1223,13 +1290,22 @@ export default function CentroCarga({
                             return {
                                 ...previous,
                                 tipos_documentos_cargados:
-                                    previous.tipos_documentos_cargados.includes(
-                                        payload.data.tipo_documento_id,
+                                    previous.tipos_documentos_cargados.some(
+                                        (d) =>
+                                            d.tipo_documento_id ===
+                                            payload.data.tipo_documento_id,
                                     )
                                         ? previous.tipos_documentos_cargados
                                         : [
                                               ...previous.tipos_documentos_cargados,
-                                              payload.data.tipo_documento_id,
+                                              {
+                                                  tipo_documento_id:
+                                                      payload.data
+                                                          .tipo_documento_id,
+                                                  estado:
+                                                      'pendiente_validacion',
+                                                  motivo_rechazo: null,
+                                              },
                                           ],
                             };
                         });
@@ -1616,9 +1692,9 @@ export default function CentroCarga({
                                                 <RequirementTarget
                                                     key={requirement.id}
                                                     requirement={requirement}
-                                                    isUploaded={uploadedTipoIdsSet.has(
+                                                    uploadedInfo={uploadedTipoIdsSet.get(
                                                         requirement.id,
-                                                    )}
+                                                    ) ?? null}
                                                     matchedCount={
                                                         matchCountByRequirement.get(
                                                             requirement.id,

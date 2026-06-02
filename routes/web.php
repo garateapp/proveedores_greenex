@@ -67,8 +67,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     // Gestión de documentos
     Route::resource('documentos', \App\Http\Controllers\DocumentoController::class)->only(['index', 'create', 'store']);
     Route::get('documentos/aprobaciones', [\App\Http\Controllers\DocumentoController::class, 'approvals'])
-        ->name('documentos.aprobaciones')
-        ->middleware('admin');
+        ->name('documentos.aprobaciones');
     Route::get('documentos/{documento}/preview', [\App\Http\Controllers\DocumentoController::class, 'preview'])->name('documentos.preview');
     Route::get('documentos/{documento}/download', [\App\Http\Controllers\DocumentoController::class, 'download'])->name('documentos.download');
     Route::post('documentos/{documento}/approve', [\App\Http\Controllers\DocumentoController::class, 'approve'])->name('documentos.approve');

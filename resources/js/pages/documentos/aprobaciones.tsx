@@ -18,15 +18,17 @@ import {
     TableRow,
 } from '@/components/ui/table';
 import { Textarea } from '@/components/ui/textarea';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import AppLayout from '@/layouts/app-layout';
 import { type BreadcrumbItem } from '@/types';
-import { Head, Link, router } from '@inertiajs/react';
+import { Head, Link, router, usePage } from '@inertiajs/react';
 import {
     CheckCircle,
     Clock,
     Download,
     Eye,
     FileText,
+    Info,
     ShieldAlert,
     XCircle,
 } from 'lucide-react';
@@ -68,6 +70,7 @@ interface Documento {
     archivo_nombre_original?: string;
     estado: 'pendiente_validacion' | 'aprobado' | 'rechazado';
     fecha_vencimiento: string | null;
+    motivo_rechazo: string | null;
     tipo_documento: TipoDocumento;
     contratista: Contratista;
     created_at: string;
@@ -85,6 +88,7 @@ interface Filters {
     tipo_documento_id?: string;
     contratista_id?: string;
     ano?: string;
+    estado?: string;
 }
 
 interface Props {
@@ -115,6 +119,8 @@ export default function DocumentosAprobaciones({
     contratistas,
     filters,
 }: Props) {
+    const page = usePage<{ auth: { user: { isAdmin: boolean } } }>();
+    const isAdmin = page.props.auth?.user?.isAdmin ?? false;
     const [previewDocumento, setPreviewDocumento] = useState<Documento | null>(null);
     const [rejectDocumento, setRejectDocumento] = useState<Documento | null>(null);
     const [motivoRechazo, setMotivoRechazo] = useState('');
@@ -133,6 +139,10 @@ export default function DocumentosAprobaciones({
 
         if (filters.contratista_id) {
             params.set('contratista_id', filters.contratista_id);
+        }
+
+        if (filters.estado) {
+            params.set('estado', filters.estado);
         }
 
         if (filters.ano) {
@@ -202,7 +212,7 @@ export default function DocumentosAprobaciones({
                             <Link href="/documentos">Ir a Documentos</Link>
                         </Button>
                         <Badge className="bg-[var(--brand-orange)] text-white">
-                            {documentos.total} pendiente(s)
+                            {documentos.total} documento(s)
                         </Badge>
                     </div>
                 </div>
@@ -217,7 +227,7 @@ export default function DocumentosAprobaciones({
                             Acota la revisión por tipo de documento, contratista o año.
                         </CardDescription>
                     </CardHeader>
-                    <CardContent className="grid gap-4 md:grid-cols-3">
+                    <CardContent className="grid gap-4 md:grid-cols-4">
                         <div className="space-y-2">
                             <label className="text-sm font-medium">Tipo de Documento</label>
                             <Select
@@ -240,24 +250,45 @@ export default function DocumentosAprobaciones({
                             </Select>
                         </div>
 
+                        {contratistas.length > 0 && (
+                            <div className="space-y-2">
+                                <label className="text-sm font-medium">Contratista</label>
+                                <Select
+                                    value={filters.contratista_id || 'all'}
+                                    onValueChange={(value) =>
+                                        handleFilterChange('contratista_id', value === 'all' ? '' : value)
+                                    }
+                                >
+                                    <SelectTrigger>
+                                        <SelectValue placeholder="Todos los contratistas" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="all">Todos los contratistas</SelectItem>
+                                        {contratistas.map((contratista) => (
+                                            <SelectItem key={contratista.value} value={contratista.value}>
+                                                {contratista.label}
+                                            </SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                            </div>
+                        )}
+
                         <div className="space-y-2">
-                            <label className="text-sm font-medium">Contratista</label>
+                            <label className="text-sm font-medium">Estado</label>
                             <Select
-                                value={filters.contratista_id || 'all'}
+                                value={filters.estado || 'all'}
                                 onValueChange={(value) =>
-                                    handleFilterChange('contratista_id', value === 'all' ? '' : value)
+                                    handleFilterChange('estado', value === 'all' ? '' : value)
                                 }
                             >
                                 <SelectTrigger>
-                                    <SelectValue placeholder="Todos los contratistas" />
+                                    <SelectValue placeholder="Todos los estados" />
                                 </SelectTrigger>
                                 <SelectContent>
-                                    <SelectItem value="all">Todos los contratistas</SelectItem>
-                                    {contratistas.map((contratista) => (
-                                        <SelectItem key={contratista.value} value={contratista.value}>
-                                            {contratista.label}
-                                        </SelectItem>
-                                    ))}
+                                    <SelectItem value="all">Todos los estados</SelectItem>
+                                    <SelectItem value="pendiente_validacion">Pendiente</SelectItem>
+                                    <SelectItem value="rechazado">Rechazado</SelectItem>
                                 </SelectContent>
                             </Select>
                         </div>
@@ -288,7 +319,7 @@ export default function DocumentosAprobaciones({
 
                 <Card>
                     <CardHeader>
-                        <CardTitle>Pendientes de aprobación</CardTitle>
+                        <CardTitle>Documentos pendientes y rechazados</CardTitle>
                     </CardHeader>
                     <CardContent>
                         <Table>
@@ -306,7 +337,7 @@ export default function DocumentosAprobaciones({
                                 {documentos.data.length === 0 ? (
                                     <TableRow>
                                         <TableCell colSpan={6} className="text-center text-muted-foreground">
-                                            No hay documentos pendientes con los filtros seleccionados.
+                                            No hay documentos con los filtros seleccionados.
                                         </TableCell>
                                     </TableRow>
                                 ) : (
@@ -327,10 +358,32 @@ export default function DocumentosAprobaciones({
                                                 {documento.contratista.nombre_fantasia || documento.contratista.razon_social}
                                             </TableCell>
                                             <TableCell>
-                                                <Badge variant="secondary">
-                                                    <Clock className="mr-1 size-3" />
-                                                    Pendiente de aprobación
-                                                </Badge>
+                                                <div className="flex items-center gap-1">
+                                                    {documento.estado === 'pendiente_validacion' ? (
+                                                        <Badge variant="secondary">
+                                                            <Clock className="mr-1 size-3" />
+                                                            Pendiente de aprobación
+                                                        </Badge>
+                                                    ) : (
+                                                        <Badge variant="destructive">
+                                                            <XCircle className="mr-1 size-3" />
+                                                            Rechazado
+                                                        </Badge>
+                                                    )}
+                                                    {documento.estado === 'rechazado' && documento.motivo_rechazo && (
+                                                        <Tooltip>
+                                                            <TooltipTrigger asChild>
+                                                                <button type="button" className="cursor-help">
+                                                                    <Info className="size-3.5 text-destructive" />
+                                                                </button>
+                                                            </TooltipTrigger>
+                                                            <TooltipContent side="right" className="max-w-xs text-xs">
+                                                                <p className="font-medium mb-0.5">Motivo del rechazo:</p>
+                                                                <p>{documento.motivo_rechazo}</p>
+                                                            </TooltipContent>
+                                                        </Tooltip>
+                                                    )}
+                                                </div>
                                             </TableCell>
                                             <TableCell>
                                                 {new Date(documento.created_at).toLocaleDateString('es-CL')}
@@ -345,24 +398,28 @@ export default function DocumentosAprobaciones({
                                                     >
                                                         <Eye className="size-4" />
                                                     </Button>
-                                                    <Button
-                                                        variant="ghost"
-                                                        size="sm"
-                                                        type="button"
-                                                        onClick={() => approveDocumento(documento)}
-                                                        className="text-[var(--brand-green)]"
-                                                    >
-                                                        <CheckCircle className="size-4" />
-                                                    </Button>
-                                                    <Button
-                                                        variant="ghost"
-                                                        size="sm"
-                                                        type="button"
-                                                        onClick={() => openRejectDialog(documento)}
-                                                        className="text-destructive"
-                                                    >
-                                                        <XCircle className="size-4" />
-                                                    </Button>
+                                                    {isAdmin && documento.estado === 'pendiente_validacion' && (
+                                                        <>
+                                                            <Button
+                                                                variant="ghost"
+                                                                size="sm"
+                                                                type="button"
+                                                                onClick={() => approveDocumento(documento)}
+                                                                className="text-[var(--brand-green)]"
+                                                            >
+                                                                <CheckCircle className="size-4" />
+                                                            </Button>
+                                                            <Button
+                                                                variant="ghost"
+                                                                size="sm"
+                                                                type="button"
+                                                                onClick={() => openRejectDialog(documento)}
+                                                                className="text-destructive"
+                                                            >
+                                                                <XCircle className="size-4" />
+                                                            </Button>
+                                                        </>
+                                                    )}
                                                     <Button variant="ghost" size="sm" asChild>
                                                         <Link href={`/documentos/${documento.id}/download`}>
                                                             <Download className="size-4" />

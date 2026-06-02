@@ -131,23 +131,30 @@ class DocumentoController extends Controller
     {
         $user = $request->user();
 
-        if (! $user->isAdmin()) {
+        if (! $user->isAdmin() && ! $user->isSupervisor()) {
             abort(403);
         }
 
         $query = Documento::with(['tipoDocumento', 'contratista'])
-            ->where('estado', 'pendiente_validacion')
+            ->whereIn('estado', ['pendiente_validacion', 'rechazado'])
             ->whereHas('tipoDocumento', function ($tipoDocumentoQuery) {
                 $tipoDocumentoQuery->where('es_documento_trabajador', false);
             })
+            ->orderByRaw("CASE WHEN estado = 'rechazado' THEN 0 ELSE 1 END")
             ->orderByDesc('created_at');
+
+        if (! $user->isAdmin()) {
+            $query->where('contratista_id', $user->contratista_id);
+        } elseif ($contratistaId = $request->input('contratista_id')) {
+            $query->where('contratista_id', $contratistaId);
+        }
 
         if ($tipoDocumentoId = $request->input('tipo_documento_id')) {
             $query->where('tipo_documento_id', $tipoDocumentoId);
         }
 
-        if ($contratistaId = $request->input('contratista_id')) {
-            $query->where('contratista_id', $contratistaId);
+        if ($estado = $request->input('estado')) {
+            $query->where('estado', $estado);
         }
 
         if ($ano = $request->input('ano')) {
@@ -162,21 +169,23 @@ class DocumentoController extends Controller
             ->orderBy('nombre')
             ->get(['id', 'nombre', 'codigo']);
 
-        $contratistas = Contratista::query()
-            ->orderBy('razon_social')
-            ->get(['id', 'razon_social', 'nombre_fantasia'])
-            ->map(fn (Contratista $contratista) => [
-                'value' => (string) $contratista->id,
-                'label' => $contratista->nombre_fantasia ?: $contratista->razon_social,
-            ])
-            ->values()
-            ->all();
+        $contratistas = $user->isAdmin()
+            ? Contratista::query()
+                ->orderBy('razon_social')
+                ->get(['id', 'razon_social', 'nombre_fantasia'])
+                ->map(fn (Contratista $contratista) => [
+                    'value' => (string) $contratista->id,
+                    'label' => $contratista->nombre_fantasia ?: $contratista->razon_social,
+                ])
+                ->values()
+                ->all()
+            : [];
 
         return Inertia::render('documentos/aprobaciones', [
             'documentos' => $documentos,
             'tiposDocumentos' => $tiposDocumentos,
             'contratistas' => $contratistas,
-            'filters' => $request->only(['tipo_documento_id', 'contratista_id', 'ano']),
+            'filters' => $request->only(['tipo_documento_id', 'contratista_id', 'ano', 'estado']),
         ]);
     }
 
