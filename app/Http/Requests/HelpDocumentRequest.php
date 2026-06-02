@@ -23,7 +23,7 @@ class HelpDocumentRequest extends FormRequest
                 'required',
                 'file',
                 'max:20480',
-                'mimes:doc,docx,pdf,xls,xlsx,ppt,pptx',
+                'extensions:doc,docx,pdf,xls,xlsx,ppt,pptx',
             ],
         ];
     }
@@ -37,7 +37,7 @@ class HelpDocumentRequest extends FormRequest
             'nombre.required' => 'El nombre del documento es obligatorio.',
             'archivo.required' => 'Debe seleccionar un archivo.',
             'archivo.max' => 'El archivo no debe superar los 20 MB.',
-            'archivo.mimes' => 'Solo se permiten archivos Word, PDF, Excel o PowerPoint.',
+            'archivo.extensions' => 'Solo se permiten archivos Word, PDF, Excel o PowerPoint.',
         ];
     }
 }
