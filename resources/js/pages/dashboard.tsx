@@ -42,11 +42,14 @@ import {
     Download,
     Eye,
     FileClock,
+    FileText,
     FileWarning,
+    Filter,
     FolderOpen,
     Search,
     UploadCloud,
     Users,
+    XCircle,
 } from 'lucide-react';
 import { type ReactNode, useMemo, useState } from 'react';
 
@@ -147,6 +150,9 @@ interface Stats {
     total_trabajadores?: number;
     documentos_por_aprobar?: number;
     alertas_activas?: number;
+    total_documentos_subidos?: number;
+    documentos_sin_aprobacion?: number;
+    documentos_rechazados?: number;
 }
 
 interface Props {
@@ -307,10 +313,21 @@ export default function Dashboard({
         };
     }, [filteredWorkers]);
 
+    const companyFilteredWorkers = useMemo(() => {
+        if (companyFilter === 'all') {
+            return workers;
+        }
+
+        return workers.filter(
+            (worker) =>
+                worker.contratista.id.toString() === companyFilter,
+        );
+    }, [companyFilter, workers]);
+
     const complianceByCompany = useMemo<ComplianceByCompanyItem[]>(() => {
         const companyMap = new Map<number, ComplianceByCompanyItem>();
 
-        workers.forEach((worker) => {
+        companyFilteredWorkers.forEach((worker) => {
             const companyId = worker.contratista.id;
             const companyName = worker.contratista.nombre || 'Sin contratista';
 
@@ -418,7 +435,57 @@ export default function Dashboard({
                                 <Badge variant="outline">
                                     {adminStats.alertas_activas} alertas activas
                                 </Badge>
+                                <Badge variant="outline" className="gap-1.5">
+                                    <FileText className="size-3" />
+                                    {adminStats.total_documentos_subidos}{' '}
+                                    subidos
+                                </Badge>
+                                <Badge
+                                    variant="outline"
+                                    className="gap-1.5 border-[var(--brand-orange)]/40 text-[var(--brand-orange-strong)]"
+                                >
+                                    <FileWarning className="size-3" />
+                                    {adminStats.documentos_sin_aprobacion}{' '}
+                                    sin aprobación
+                                </Badge>
+                                <Badge
+                                    variant="outline"
+                                    className="gap-1.5 border-destructive/40 text-destructive"
+                                >
+                                    <XCircle className="size-3" />
+                                    {adminStats.documentos_rechazados}{' '}
+                                    rechazados
+                                </Badge>
                             </div>
+
+                            {filter_options.empresas.length > 0 && (
+                                <div className="mt-3 flex items-center gap-2">
+                                    <Filter className="size-4 text-muted-foreground" />
+                                    <Select
+                                        value={companyFilter}
+                                        onValueChange={setCompanyFilter}
+                                    >
+                                        <SelectTrigger className="w-[220px]">
+                                            <SelectValue placeholder="Filtrar por contratista" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="all">
+                                                Todos los contratistas
+                                            </SelectItem>
+                                            {filter_options.empresas.map(
+                                                (option) => (
+                                                    <SelectItem
+                                                        key={option.value}
+                                                        value={option.value}
+                                                    >
+                                                        {option.label}
+                                                    </SelectItem>
+                                                ),
+                                            )}
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+                            )}
                         </div>
 
                         <div className="flex flex-wrap gap-2">
@@ -462,6 +529,27 @@ export default function Dashboard({
                         value={String(kpis.recent_uploads_24h_total)}
                         subtitle="Documentos procesados últimas 24h"
                         icon={<Users className="size-4" />}
+                    />
+                </section>
+
+                <section className="grid gap-4 md:grid-cols-3">
+                    <KpiCard
+                        title="Documentos Subidos"
+                        value={String(adminStats.total_documentos_subidos ?? 0)}
+                        subtitle="Total documentos cargados en el sistema"
+                        icon={<FileText className="size-4" />}
+                    />
+                    <KpiCard
+                        title="Documentos sin Aprobación"
+                        value={String(adminStats.documentos_sin_aprobacion ?? 0)}
+                        subtitle="Pendientes de revisión y validación"
+                        icon={<FileWarning className="size-4" />}
+                    />
+                    <KpiCard
+                        title="Documentos Rechazados"
+                        value={String(adminStats.documentos_rechazados ?? 0)}
+                        subtitle="Requieren corrección y nueva carga"
+                        icon={<XCircle className="size-4" />}
                     />
                 </section>
 

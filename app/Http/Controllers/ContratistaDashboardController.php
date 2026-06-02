@@ -37,6 +37,9 @@ class ContratistaDashboardController extends Controller
             'horas_trabajadas_mes' => $this->getHorasTrabajadas($contratista->id),
             'pagos_pendientes' => EstadoPago::forContratista($contratista->id)->pendingPayment()->count(),
             'estado_cumplimiento' => $this->getEstadoCumplimiento($contratista->id),
+            'total_documentos_subidos' => Documento::forContratista($contratista->id)->count(),
+            'documentos_sin_aprobacion' => Documento::forContratista($contratista->id)->byEstado('pendiente_validacion')->count(),
+            'documentos_rechazados' => Documento::forContratista($contratista->id)->byEstado('rechazado')->count(),
         ];
 
         $alertas = Alerta::forContratista($contratista->id)
@@ -515,6 +518,9 @@ class ContratistaDashboardController extends Controller
             'total_trabajadores' => Trabajador::active()->count(),
             'documentos_por_aprobar' => Documento::byEstado('pendiente_validacion')->count(),
             'alertas_activas' => Alerta::unread()->count(),
+            'total_documentos_subidos' => Documento::query()->count(),
+            'documentos_sin_aprobacion' => Documento::byEstado('pendiente_validacion')->count(),
+            'documentos_rechazados' => Documento::byEstado('rechazado')->count(),
         ];
     }
 
@@ -560,8 +566,20 @@ class ContratistaDashboardController extends Controller
      */
     private function getEstadoCumplimiento(int $contratistaId): array
     {
-        $pendientes = $this->countDocumentosPendientes($contratistaId);
+        $tiposObligatorios = TipoDocumento::obligatory()->active()->pluck('id');
+        $totalRequired = $tiposObligatorios->count();
+        $currentYear = now()->year;
+        $currentMonth = now()->month - 1;
+
+        $cargados = Documento::forContratista($contratistaId)
+            ->where('periodo_ano', $currentYear)
+            ->where('periodo_mes', $currentMonth)
+            ->whereIn('tipo_documento_id', $tiposObligatorios)
+            ->count();
+
+        $pendientes = $totalRequired - $cargados;
         $vencidos = Documento::forContratista($contratistaId)->expired()->count();
+        $porcentaje = $totalRequired > 0 ? round(($cargados / $totalRequired) * 100) : 0;
 
         if ($vencidos > 0) {
             return [
@@ -574,7 +592,7 @@ class ContratistaDashboardController extends Controller
         if ($pendientes > 0) {
             return [
                 'estado' => 'pendiente',
-                'porcentaje' => 50,
+                'porcentaje' => $porcentaje,
                 'mensaje' => "Tiene {$pendientes} documento(s) pendiente(s) de carga",
             ];
         }

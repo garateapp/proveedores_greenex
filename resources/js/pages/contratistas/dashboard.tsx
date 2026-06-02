@@ -10,11 +10,13 @@ import {
     CheckCircle2,
     Clock,
     FileClock,
+    FileText,
     FileWarning,
     ShieldAlert,
     TrendingUp,
     UploadCloud,
     Users,
+    XCircle,
 } from 'lucide-react';
 import { type ReactNode } from 'react';
 
@@ -27,6 +29,9 @@ interface Stats {
         porcentaje: number;
         mensaje: string;
     };
+    total_documentos_subidos: number;
+    documentos_sin_aprobacion: number;
+    documentos_rechazados: number;
 }
 
 interface Alerta {
@@ -201,6 +206,27 @@ export default function ContratistaDashboard({ contratista, stats, alertas }: Pr
                         value={`${cumplimiento}%`}
                         subtitle={stats.estado_cumplimiento.mensaje}
                         icon={<TrendingUp className="size-4" />}
+                    />
+                </section>
+
+                <section className="grid gap-4 md:grid-cols-3">
+                    <KpiCard
+                        title="Documentos Subidos"
+                        value={String(stats.total_documentos_subidos)}
+                        subtitle="Total documentos cargados"
+                        icon={<FileText className="size-4" />}
+                    />
+                    <KpiCard
+                        title="Documentos sin Aprobación"
+                        value={String(stats.documentos_sin_aprobacion)}
+                        subtitle="Pendientes de revisión"
+                        icon={<FileWarning className="size-4" />}
+                    />
+                    <KpiCard
+                        title="Documentos Rechazados"
+                        value={String(stats.documentos_rechazados)}
+                        subtitle="Requieren corrección"
+                        icon={<XCircle className="size-4" />}
                     />
                 </section>
 

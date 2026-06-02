@@ -14,6 +14,7 @@ import { dashboard } from '@/routes';
 import { type NavItem, type NavSection, type SharedData } from '@/types';
 import { Link, usePage } from '@inertiajs/react';
 import {
+    BookOpen,
     Building2,
     ClipboardCheck,
     ClipboardList,
@@ -35,6 +36,7 @@ const footerNavItems: NavItem[] = [];
 export function AppSidebar() {
     const page = usePage<SharedData>();
     const isAdmin = page.props.auth?.user?.isAdmin ?? false;
+    const isSupervisor = page.props.auth?.user?.isSupervisor ?? false;
 
     const dashboardItem: NavItem = {
         title: 'Dashboard',
@@ -95,13 +97,15 @@ export function AppSidebar() {
                   icon: ClipboardList,
               },
           ]
-        : [
-              {
-                  title: 'Faenas',
-                  href: '/faenas',
-                  icon: MapPin,
-              },
-          ];
+        : isSupervisor
+          ? []
+          : [
+                {
+                    title: 'Faenas',
+                    href: '/faenas',
+                    icon: MapPin,
+                },
+            ];
 
     const contratistasItems: NavItem[] = [
         {
@@ -148,22 +152,24 @@ export function AppSidebar() {
             : []),
     ];
 
-    const herramientasItems: NavItem[] = [
-        {
-            title: 'Cuadratura asistencia',
-            href: '/herramientas/cuadratura-asistencia',
-            icon: Wrench,
-        },
-        ...(isAdmin
-            ? [
-                  {
-                      title: 'Reporte asistencia packing',
-                      href: '/admin/packing/asistencia-reporte',
-                      icon: ClipboardCheck,
-                  },
-              ]
-            : []),
-    ];
+    const herramientasItems: NavItem[] = isSupervisor
+        ? []
+        : [
+              {
+                  title: 'Cuadratura asistencia',
+                  href: '/herramientas/cuadratura-asistencia',
+                  icon: Wrench,
+              },
+              ...(isAdmin
+                  ? [
+                        {
+                            title: 'Reporte asistencia packing',
+                            href: '/admin/packing/asistencia-reporte',
+                            icon: ClipboardCheck,
+                        },
+                    ]
+                  : []),
+          ];
 
     const navSections: NavSection[] = [
         {
@@ -182,6 +188,18 @@ export function AppSidebar() {
             title: 'Documentación',
             icon: FileText,
             items: documentacionItems,
+            defaultOpen: true,
+        },
+        {
+            title: 'Ayuda',
+            icon: BookOpen,
+            items: [
+                {
+                    title: 'Centro de Ayuda',
+                    href: '/ayuda',
+                    icon: BookOpen,
+                },
+            ],
             defaultOpen: true,
         },
         {

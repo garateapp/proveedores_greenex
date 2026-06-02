@@ -55,6 +55,7 @@ class CentroCargaController extends Controller
      */
     public function contratistasIndex(Request $request): Response
     {
+        $user = $request->user();
         $contratista = null;
         $requirements = [
             'tipos_documentos' => [],
@@ -75,6 +76,14 @@ class CentroCargaController extends Controller
                 ->findOrFail((int) $request->integer('contratista_id'));
 
             $this->authorizeContratistaAccess($request, $contratista);
+            $requirements = $this->buildContratistaRequirements($contratista, $periodoAno, $periodoMes);
+        } elseif (! $user->isAdmin()) {
+            $contratista = $user->contratista;
+
+            if (! $contratista) {
+                abort(403, 'No tiene un contratista asociado.');
+            }
+
             $requirements = $this->buildContratistaRequirements($contratista, $periodoAno, $periodoMes);
         }
 

@@ -27,6 +27,7 @@ import {
     ClipboardCheck,
     FileText,
     LoaderCircle,
+    Lock,
     Search,
     Sparkles,
     Trash2,
@@ -43,6 +44,8 @@ import {
     useState,
 } from 'react';
 import Tesseract from 'tesseract.js';
+import { usePage } from '@inertiajs/react';
+import type { SharedData } from '@/types';
 
 interface ContratistaOption {
     id: number;
@@ -634,6 +637,9 @@ export default function CentroCarga({
     initialPeriodo,
     initialRequirements,
 }: Props) {
+    const { auth } = usePage<SharedData>().props;
+    const isAdmin = auth?.user?.isAdmin ?? false;
+
     const [periodoAno, setPeriodoAno] = useState(
         String(initialPeriodo.periodo_ano),
     );
@@ -1467,13 +1473,18 @@ export default function CentroCarga({
                     <CardHeader>
                         <CardTitle>Contratista objetivo</CardTitle>
                         <CardDescription>
-                            Busca por RUT o razón social para habilitar la
-                            clasificación documental.
+                            {isAdmin
+                                ? 'Busca por RUT o razón social para habilitar la clasificación documental.'
+                                : 'Filtrado automáticamente al contratista asignado.'}
                         </CardDescription>
                     </CardHeader>
                     <CardContent className="space-y-3">
                         <div className="relative">
-                            <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
+                            {isAdmin ? (
+                                <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
+                            ) : (
+                                <Lock className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
+                            )}
                             <Input
                                 value={search}
                                 onChange={(event) =>
@@ -1481,6 +1492,7 @@ export default function CentroCarga({
                                 }
                                 className="pl-10"
                                 placeholder="Ejemplo: 76.543.210-9, Greenex SpA..."
+                                disabled={!isAdmin}
                             />
                         </div>
 

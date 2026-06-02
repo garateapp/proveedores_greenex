@@ -99,6 +99,13 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('herramientas/cuadratura-asistencia', [CuadraturaAsistenciaController::class, 'index'])->name('herramientas.cuadratura-asistencia.index');
     Route::post('herramientas/cuadratura-asistencia', [CuadraturaAsistenciaController::class, 'extract'])->name('herramientas.cuadratura-asistencia.extract');
 
+    // Centro de Ayuda
+    Route::get('ayuda', [\App\Http\Controllers\HelpDocumentController::class, 'index'])->name('ayuda.index');
+    Route::get('ayuda/crear', [\App\Http\Controllers\HelpDocumentController::class, 'create'])->name('ayuda.create');
+    Route::post('ayuda', [\App\Http\Controllers\HelpDocumentController::class, 'store'])->name('ayuda.store');
+    Route::get('ayuda/{helpDocument}/descargar', [\App\Http\Controllers\HelpDocumentController::class, 'download'])->name('ayuda.download');
+    Route::delete('ayuda/{helpDocument}', [\App\Http\Controllers\HelpDocumentController::class, 'destroy'])->name('ayuda.destroy');
+
     // Estados de Pago
     Route::get('estados-pago', [\App\Http\Controllers\EstadoPagoController::class, 'index'])->name('estados-pago.index');
     Route::get('estados-pago/create', [\App\Http\Controllers\EstadoPagoController::class, 'create'])->name('estados-pago.create');

@@ -20,9 +20,15 @@ class FaenaController extends Controller
      */
     public function index(Request $request): Response
     {
+        $user = $request->user();
+
         $query = Faena::with(['tipoFaena:id,nombre'])
             ->withCount('trabajadores')
             ->orderBy('created_at', 'desc');
+
+        if (! $user->isAdmin()) {
+            $query->whereHas('contratistas', fn ($q) => $q->where('contratistas.id', $user->contratista_id));
+        }
 
         // Search filter
         if ($search = $request->input('search')) {
@@ -183,8 +189,12 @@ class FaenaController extends Controller
     /**
      * Remove the specified faena.
      */
-    public function destroy(Faena $faena)
+    public function destroy(Request $request, Faena $faena)
     {
+        if (! $request->user()->isAdmin()) {
+            abort(403);
+        }
+
         $faena->delete();
 
         return redirect()->route('faenas.index')->with('success', 'Faena eliminada exitosamente.');
