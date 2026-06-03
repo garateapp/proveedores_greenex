@@ -20,8 +20,16 @@ interface ContratistaOption {
     label: string;
 }
 
+interface FaenaOption {
+    id: number;
+    nombre: string;
+    codigo: string;
+    tipo_faena: string | null;
+}
+
 interface Props {
     contratistas: ContratistaOption[];
+    faenasDisponibles: FaenaOption[];
 }
 
 const breadcrumbs: BreadcrumbItem[] = [
@@ -29,7 +37,7 @@ const breadcrumbs: BreadcrumbItem[] = [
     { title: 'Crear', href: '/trabajadores/create' },
 ];
 
-export default function TrabajadorCreate({ contratistas }: Props) {
+export default function TrabajadorCreate({ contratistas, faenasDisponibles }: Props) {
     const { data, setData, post, processing, errors } = useForm({
         documento: '',
         nombre: '',
@@ -39,6 +47,7 @@ export default function TrabajadorCreate({ contratistas }: Props) {
         fecha_ingreso: '',
         observaciones: '',
         contratista_id: contratistas[0]?.value?.toString() ?? '',
+        faena_id: '',
     });
 
     const isAdmin = useMemo(() => !!contratistas.length, [contratistas.length]);
@@ -170,6 +179,30 @@ export default function TrabajadorCreate({ contratistas }: Props) {
                                             <p className="text-sm text-destructive">
                                                 {errors.contratista_id}
                                             </p>
+                                        )}
+                                    </div>
+                                )}
+
+                                {faenasDisponibles.length > 0 && (
+                                    <div className="space-y-2">
+                                        <Label htmlFor="faena_id">Faena</Label>
+                                        <Select
+                                            value={data.faena_id}
+                                            onValueChange={(value) => setData('faena_id', value)}
+                                        >
+                                            <SelectTrigger>
+                                                <SelectValue placeholder="Seleccione una faena (opcional)" />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                {faenasDisponibles.map((faena) => (
+                                                    <SelectItem key={faena.id} value={faena.id.toString()}>
+                                                        {faena.codigo} - {faena.nombre}{faena.tipo_faena ? ` (${faena.tipo_faena})` : ''}
+                                                    </SelectItem>
+                                                ))}
+                                            </SelectContent>
+                                        </Select>
+                                        {errors.faena_id && (
+                                            <p className="text-sm text-destructive">{errors.faena_id}</p>
                                         )}
                                     </div>
                                 )}

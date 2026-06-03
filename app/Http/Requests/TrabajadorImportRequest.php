@@ -40,6 +40,12 @@ class TrabajadorImportRequest extends FormRequest
             ];
         }
 
+        $rules['faena_id'] = [
+            'nullable',
+            'integer',
+            Rule::exists('faenas', 'id'),
+        ];
+
         return $rules;
     }
 

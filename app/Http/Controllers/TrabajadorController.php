@@ -103,10 +103,20 @@ class TrabajadorController extends Controller
                 ]);
         }
 
+        $faenasDisponibles = $this->resolveAvailableFaenasForUser($user, $user->contratista_id ?? 0)
+            ->map(fn (Faena $faena) => [
+                'id' => $faena->id,
+                'nombre' => $faena->nombre,
+                'codigo' => $faena->codigo,
+                'tipo_faena' => $faena->tipoFaena?->nombre,
+            ])
+            ->values();
+
         return Inertia::render('trabajadores/index', [
             'trabajadores' => $trabajadores,
             'filters' => $request->only(['search', 'estado']),
             'contratistas' => $contratistas,
+            'faenasDisponibles' => $faenasDisponibles,
         ]);
     }
 
@@ -115,10 +125,12 @@ class TrabajadorController extends Controller
      */
     public function create(): Response
     {
+        $user = request()->user();
+
         $contratistas = [];
 
-        if (request()->user()->isAdmin()) {
-            $contratistas = \App\Models\Contratista::query()
+        if ($user->isAdmin()) {
+            $contratistas = Contratista::query()
                 ->where('estado', 'activo')
                 ->orderBy('razon_social')
                 ->get(['id', 'razon_social'])
@@ -128,8 +140,18 @@ class TrabajadorController extends Controller
                 ]);
         }
 
+        $faenasDisponibles = $this->resolveAvailableFaenasForUser($user, $user->contratista_id ?? 0)
+            ->map(fn (Faena $faena) => [
+                'id' => $faena->id,
+                'nombre' => $faena->nombre,
+                'codigo' => $faena->codigo,
+                'tipo_faena' => $faena->tipoFaena?->nombre,
+            ])
+            ->values();
+
         return Inertia::render('trabajadores/create', [
             'contratistas' => $contratistas,
+            'faenasDisponibles' => $faenasDisponibles,
         ]);
     }
 
@@ -148,6 +170,7 @@ class TrabajadorController extends Controller
             'telefono' => ['nullable', 'string', 'max:20'],
             'fecha_ingreso' => ['nullable', 'date'],
             'observaciones' => ['nullable', 'string'],
+            'faena_id' => ['nullable', 'integer', 'exists:faenas,id'],
         ]);
 
         // Validate RUT
@@ -163,18 +186,39 @@ class TrabajadorController extends Controller
             return back()->withErrors(['documento' => 'Ya existe un trabajador con este RUT.']);
         }
 
-        Trabajador::create([
+        $contratistaId = $user->isAdmin() ? $request->input('contratista_id') : $user->contratista_id;
+
+        if (! $user->isAdmin() && ($validated['faena_id'] ?? null)) {
+            $faenaBelongsToContratista = Faena::query()
+                ->active()
+                ->where('id', $validated['faena_id'])
+                ->whereHas('contratistas', fn ($q) => $q->where('contratistas.id', $contratistaId))
+                ->exists();
+
+            if (! $faenaBelongsToContratista) {
+                return back()->withErrors(['faena_id' => 'La faena seleccionada no está disponible.']);
+            }
+        }
+
+        $trabajador = Trabajador::create([
             'id' => $id,
             'documento' => $validated['documento'],
             'nombre' => $validated['nombre'],
             'apellido' => $validated['apellido'],
-            'contratista_id' => $user->isAdmin() ? $request->input('contratista_id') : $user->contratista_id,
-            'email' => $validated['email'],
-            'telefono' => $validated['telefono'],
+            'contratista_id' => $contratistaId,
+            'email' => $validated['email'] ?? null,
+            'telefono' => $validated['telefono'] ?? null,
             'fecha_ingreso' => $validated['fecha_ingreso'] ?? now(),
-            'observaciones' => $validated['observaciones'],
+            'observaciones' => $validated['observaciones'] ?? null,
             'estado' => 'activo',
         ]);
+
+        if ($validated['faena_id'] ?? null) {
+            $trabajador->faenas()->attach((int) $validated['faena_id'], [
+                'fecha_asignacion' => now(),
+                'fecha_desasignacion' => null,
+            ]);
+        }
 
         return redirect()->route('trabajadores.index')->with('success', 'Trabajador registrado exitosamente.');
     }

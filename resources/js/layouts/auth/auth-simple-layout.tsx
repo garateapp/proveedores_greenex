@@ -26,7 +26,7 @@ export default function AuthSimpleLayout({
                             <div className="mb-1 flex items-center justify-center rounded-xl border border-primary/25 bg-white/80 px-4 py-3">
                                 <AppLogo />
                             </div>
-                            <span className="sr-only">Greenex</span>
+                            <span className="sr-only">Novafresh</span>
                         </Link>
 
                         <div className="space-y-2 text-center">

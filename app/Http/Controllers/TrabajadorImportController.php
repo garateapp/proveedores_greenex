@@ -26,6 +26,22 @@ class TrabajadorImportController extends Controller
             ]);
         }
 
+        $faenaId = $request->input('faena_id');
+
+        if ($faenaId && ! $user->isAdmin()) {
+            $faenaBelongsToContratista = \App\Models\Faena::query()
+                ->active()
+                ->where('id', $faenaId)
+                ->whereHas('contratistas', fn ($q) => $q->where('contratistas.id', $contratistaId))
+                ->exists();
+
+            if (! $faenaBelongsToContratista) {
+                return back()->withErrors([
+                    'faena_id' => 'La faena seleccionada no está disponible para su contratista.',
+                ]);
+            }
+        }
+
         $file = $request->file('file');
 
         try {
@@ -41,7 +57,7 @@ class TrabajadorImportController extends Controller
             $imported = 0;
             $skipped = 0;
 
-            DB::transaction(function () use ($data, $contratistaId, &$errors, &$imported, &$skipped) {
+            DB::transaction(function () use ($data, $contratistaId, $faenaId, &$errors, &$imported, &$skipped) {
                 foreach ($data as $index => $row) {
                     $rowNumber = $index + 2; // +2 because index starts at 0 and we skip header
 
@@ -86,7 +102,7 @@ class TrabajadorImportController extends Controller
                     }
 
                     // Create trabajador
-                    Trabajador::create([
+                    $trabajador = Trabajador::create([
                         'id' => $row['id'],
                         'documento' => $row['documento'],
                         'nombre' => $row['nombre'],
@@ -95,6 +111,13 @@ class TrabajadorImportController extends Controller
                         'estado' => 'activo',
                         'fecha_ingreso' => now(),
                     ]);
+
+                    if ($faenaId) {
+                        $trabajador->faenas()->attach((int) $faenaId, [
+                            'fecha_asignacion' => now(),
+                            'fecha_desasignacion' => null,
+                        ]);
+                    }
 
                     $imported++;
                 }

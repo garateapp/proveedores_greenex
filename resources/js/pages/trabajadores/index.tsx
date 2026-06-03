@@ -66,13 +66,21 @@ interface Filters {
     estado?: string;
 }
 
+interface FaenaOption {
+    id: number;
+    nombre: string;
+    codigo: string;
+    tipo_faena: string | null;
+}
+
 interface Props {
     trabajadores: Pagination;
     filters: Filters;
     contratistas?: { value: number; label: string }[];
+    faenasDisponibles?: FaenaOption[];
 }
 
-export default function TrabajadoresIndex({ trabajadores, filters, contratistas = [] }: Props) {
+export default function TrabajadoresIndex({ trabajadores, filters, contratistas = [], faenasDisponibles = [] }: Props) {
     const [search, setSearch] = useState(filters.search || '');
     const page = usePage<SharedData & { contratistas?: { value: number; label: string }[] }>();
     const isAdmin = page.props.auth?.user?.isAdmin ?? false;
@@ -80,6 +88,7 @@ export default function TrabajadoresIndex({ trabajadores, filters, contratistas 
     const { data, setData, post, processing, errors, progress } = useForm({
         file: null as File | null,
         contratista_id: '',
+        faena_id: '',
     });
 
     const fileInputRef = useRef<HTMLInputElement | null>(null);
@@ -275,6 +284,30 @@ export default function TrabajadoresIndex({ trabajadores, filters, contratistas 
                                     </select>
                                     {errors.contratista_id && (
                                         <p className="text-sm text-destructive">{errors.contratista_id as string}</p>
+                                    )}
+                                </div>
+                            )}
+
+                            {faenasDisponibles.length > 0 && (
+                                <div className="space-y-2">
+                                    <label className="text-sm font-medium text-foreground" htmlFor="faena_id">
+                                        Faena (opcional)
+                                    </label>
+                                    <select
+                                        id="faena_id"
+                                        className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                                        value={data.faena_id}
+                                        onChange={(e) => setData('faena_id', e.target.value)}
+                                    >
+                                        <option value="">Sin faena</option>
+                                        {faenasDisponibles.map((faena) => (
+                                            <option key={faena.id} value={faena.id}>
+                                                {faena.codigo} - {faena.nombre}{faena.tipo_faena ? ` (${faena.tipo_faena})` : ''}
+                                            </option>
+                                        ))}
+                                    </select>
+                                    {errors.faena_id && (
+                                        <p className="text-sm text-destructive">{errors.faena_id as string}</p>
                                     )}
                                 </div>
                             )}

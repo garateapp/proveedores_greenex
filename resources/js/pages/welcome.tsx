@@ -65,9 +65,9 @@ export default function Welcome() {
                         <div className="flex items-center gap-3">
                             <div className="rounded-xl border border-[var(--brand-green)]/30 bg-white/70 p-2.5">
                                 <img
-                                    src="/img/iconogreenex.png"
-                                    alt="Greenex"
-                                    className="h-7 w-7 object-contain"
+                                    src="/img/logo-novafresh.png"
+                                    alt="Novafresh"
+                                    className="h-25 w-35 object-contain"
                                 />
                             </div>
                             <div>

@@ -315,12 +315,12 @@ class CentroCargaController extends Controller
             ->whereHas('tipoDocumento', function ($query) {
                 $query->where('permite_multiples_en_mes', false);
             })
-            ->select(['tipo_documento_id', 'estado', 'motivo_rechazo'])
+            ->select(['tipo_documento_id', 'firmado_at'])
             ->get()
-            ->map(fn (Documento $doc) => [
+            ->map(fn ($doc) => [
                 'tipo_documento_id' => (int) $doc->tipo_documento_id,
-                'estado' => $doc->estado,
-                'motivo_rechazo' => $doc->motivo_rechazo,
+                'estado' => $doc->firmado_at ? 'aprobado' : 'pendiente_validacion',
+                'motivo_rechazo' => null,
             ])
             ->values()
             ->all();

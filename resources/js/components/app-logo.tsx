@@ -1,9 +1,9 @@
 export default function AppLogo() {
     return (
         <img
-            src="/img/logogreenex.png"
-            alt="Greenex"
-            className="h-10 w-auto object-contain sm:h-11"
+            src="/img/logo-novafresh.png"
+            alt="Novafresh"
+            className="h-25 w-35 object-contain"
         />
     );
 }
