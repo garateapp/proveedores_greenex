@@ -6,6 +6,7 @@ use App\Http\Controllers\Admin\PackingMarcacionController;
 use App\Http\Controllers\Admin\PackingTarjetaAsignacionController;
 use App\Http\Controllers\Admin\PackingTarjetaController;
 use App\Http\Controllers\Admin\PlantillaDocumentoTrabajadorController;
+use App\Http\Controllers\Admin\TransferenciaTrabajadorController;
 use App\Http\Controllers\Admin\TurnoController;
 use App\Http\Controllers\CentroCargaController;
 use App\Http\Controllers\ContratistaDashboardController;
@@ -142,6 +143,14 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
         // Gestión de usuarios
         Route::resource('users', \App\Http\Controllers\Admin\UserManagementController::class);
+
+        // Traspaso masivo de trabajadores entre contratistas (antes del resource para evitar conflicto)
+        Route::prefix('contratistas')->name('contratistas.')->group(function () {
+            Route::get('transferencia', [TransferenciaTrabajadorController::class, 'create'])->name('transferencia');
+            Route::get('transferencia/trabajadores', [TransferenciaTrabajadorController::class, 'trabajadores'])->name('transferencia.trabajadores');
+            Route::post('transferencia/preview', [TransferenciaTrabajadorController::class, 'preview'])->name('transferencia.preview');
+            Route::post('transferencia', [TransferenciaTrabajadorController::class, 'store'])->name('transferencia.store');
+        });
 
         // Gestión de contratistas
         Route::resource('contratistas', \App\Http\Controllers\Admin\ContratistaManagementController::class);

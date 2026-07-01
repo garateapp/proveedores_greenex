@@ -14,6 +14,7 @@ import { dashboard } from '@/routes';
 import { type NavItem, type NavSection, type SharedData } from '@/types';
 import { Link, usePage } from '@inertiajs/react';
 import {
+    ArrowLeftRight,
     BookOpen,
     Building2,
     ClipboardCheck,
@@ -67,10 +68,15 @@ export function AppSidebar() {
                   icon: FileText,
               },
               {
-                  title: 'Contratistas',
-                  href: '/admin/contratistas',
-                  icon: Building2,
-              },
+                    title: 'Contratistas',
+                    href: '/admin/contratistas',
+                    icon: Building2,
+                },
+                {
+                    title: 'Traspaso de Personal',
+                    href: '/admin/contratistas/transferencia',
+                    icon: ArrowLeftRight,
+                },
               {
                   title: 'Usuarios',
                   href: '/admin/users',

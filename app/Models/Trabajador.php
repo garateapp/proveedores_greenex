@@ -88,6 +88,11 @@ class Trabajador extends Model
     /**
      * Get the nombre completo attribute.
      */
+    public function historialContratistas(): HasMany
+    {
+        return $this->hasMany(ContratistaTrabajadorHistorial::class, 'trabajador_id', 'id');
+    }
+
     public function getNombreCompletoAttribute(): string
     {
         return "{$this->nombre} {$this->apellido}";
