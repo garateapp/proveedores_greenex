@@ -1,5 +1,5 @@
 import { FormEventHandler, useEffect, useState } from 'react';
-import { Head, router, usePage } from '@inertiajs/react';
+import { Head, router } from '@inertiajs/react';
 import { AppLayout } from '@/layouts/app';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -13,7 +13,6 @@ import {
     SelectTrigger,
     SelectValue,
 } from '@/components/ui/select';
-import { Checkbox } from '@/components/ui/checkbox';
 import {
     Table,
     TableBody,
@@ -32,7 +31,6 @@ import {
 } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import {
     AlertTriangle,
     ArrowLeftRight,
@@ -44,10 +42,7 @@ import {
     FileText,
     CreditCard,
     ArrowRight,
-    CheckCircle2,
 } from 'lucide-react';
-import { Page } from '@inertiajs/core';
-
 interface ContratistaOption {
     value: number;
     label: string;
@@ -96,10 +91,6 @@ interface Props {
 }
 
 export default function Transferencia({ contratistas }: Props) {
-    const page = usePage<Page<Props>>();
-    const flash = (page.props as any).flash ?? {};
-
-    const [step, setStep] = useState<'select' | 'confirm'>('select');
     const [origenId, setOrigenId] = useState<string>('');
     const [destinoId, setDestinoId] = useState<string>('');
     const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -112,16 +103,9 @@ export default function Transferencia({ contratistas }: Props) {
     const [showPreview, setShowPreview] = useState(false);
     const [faenaDestinoIds, setFaenaDestinoIds] = useState<number[]>([]);
     const [motivo, setMotivo] = useState('');
-    const [successMsg, setSuccessMsg] = useState<string | null>(null);
     const [currentPage, setCurrentPage] = useState(1);
     const [lastPage, setLastPage] = useState(1);
     const [total, setTotal] = useState(0);
-
-    useEffect(() => {
-        if (flash.success) {
-            setSuccessMsg(flash.success as string);
-        }
-    }, [flash.success]);
 
     const loadTrabajadores = async (contratistaId: string, pageNum: number = 1, searchTerm: string = '') => {
         if (!contratistaId) {
@@ -186,7 +170,7 @@ export default function Transferencia({ contratistas }: Props) {
         try {
             const res = await fetch('/admin/contratistas/transferencia/preview', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': (window as any).csrfToken ?? '' },
+                headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') ?? '' },
                 body: JSON.stringify({
                     contratista_origen_id: Number(origenId),
                     contratista_destino_id: Number(destinoId),
@@ -221,7 +205,6 @@ export default function Transferencia({ contratistas }: Props) {
                 onSuccess: () => {
                     setSubmitting(false);
                     setShowPreview(false);
-                    setStep('select');
                     setSelectedIds(new Set());
                     setDestinoId('');
                     setOrigenId('');
@@ -251,14 +234,6 @@ export default function Transferencia({ contratistas }: Props) {
                         </p>
                     </div>
                 </div>
-
-                {successMsg && (
-                    <Alert variant="default" className="border-green-500 bg-green-50 text-green-900 dark:bg-green-950 dark:text-green-100">
-                        <CheckCircle2 className="h-4 w-4" />
-                        <AlertTitle>Traspaso exitoso</AlertTitle>
-                        <AlertDescription>{successMsg}</AlertDescription>
-                    </Alert>
-                )}
 
                 <form onSubmit={handleSubmit}>
                     <div className="grid gap-6 lg:grid-cols-2">
@@ -349,10 +324,12 @@ export default function Transferencia({ contratistas }: Props) {
                                                 ) : (
                                                     preview.faenas_destino_disponibles.map((f) => (
                                                         <label key={f.value} className="flex items-center gap-2 text-sm">
-                                                            <Checkbox
+                                                            <input
+                                                                type="checkbox"
+                                                                className="size-4 rounded border-gray-300 text-primary focus:ring-primary"
                                                                 checked={faenaDestinoIds.includes(f.value)}
-                                                                onCheckedChange={(checked) => {
-                                                                    if (checked) {
+                                                                onChange={(e) => {
+                                                                    if (e.target.checked) {
                                                                         setFaenaDestinoIds((prev) => [...prev, f.value]);
                                                                     } else {
                                                                         setFaenaDestinoIds((prev) => prev.filter((id) => id !== f.value));
@@ -413,9 +390,11 @@ export default function Transferencia({ contratistas }: Props) {
                                             <TableHeader>
                                                 <TableRow>
                                                     <TableHead className="w-10">
-                                                        <Checkbox
+                                                        <input
+                                                            type="checkbox"
+                                                            className="size-4 rounded border-gray-300 text-primary focus:ring-primary"
                                                             checked={trabajadores.length > 0 && selectedIds.size === trabajadores.length}
-                                                            onCheckedChange={toggleAll}
+                                                            onChange={toggleAll}
                                                         />
                                                     </TableHead>
                                                     <TableHead>RUT</TableHead>
@@ -432,7 +411,12 @@ export default function Transferencia({ contratistas }: Props) {
                                                         onClick={() => toggleWorker(t.id)}
                                                     >
                                                         <TableCell>
-                                                            <Checkbox checked={selectedIds.has(t.id)} />
+                                                            <input
+                                                                type="checkbox"
+                                                                className="size-4 rounded border-gray-300 text-primary focus:ring-primary"
+                                                                checked={selectedIds.has(t.id)}
+                                                                onChange={() => toggleWorker(t.id)}
+                                                            />
                                                         </TableCell>
                                                         <TableCell className="font-mono text-sm">{t.documento}</TableCell>
                                                         <TableCell className="font-medium">{t.nombre} {t.apellido}</TableCell>
