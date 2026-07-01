@@ -265,14 +265,22 @@ class ControlAccessLogIngestController extends Controller
 
         if ($trabajador instanceof Trabajador) {
             if ($contratista instanceof Contratista && $trabajador->contratista_id !== $contratista->id) {
+                $oldContratistaId = $trabajador->contratista_id;
                 $trabajador->contratista_id = $contratista->id;
+                [$trabajador->nombre, $trabajador->apellido] = $this->splitFullName($record['nombre'] ?? null);
                 $trabajador->save();
+
+                Log::info('Trabajador reasignado a nuevo contratista.', [
+                    'trabajador_id' => $personalId,
+                    'contratista_origen_id' => $oldContratistaId,
+                    'contratista_destino_id' => $contratista->id,
+                ]);
             }
 
             return;
         }
 
-        if ($contractorGroup === null || ! ($contratista instanceof Contratista)) {
+        if (! ($contratista instanceof Contratista)) {
             return;
         }
 
@@ -292,6 +300,14 @@ class ControlAccessLogIngestController extends Controller
             'contratista_id' => $contratista->id,
             'estado' => 'activo',
             'fecha_ingreso' => now()->toDateString(),
+        ]);
+
+        Log::info('Trabajador creado desde ingreso de control de acceso.', [
+            'trabajador_id' => $personalId,
+            'documento' => $documento,
+            'nombre' => $nombre,
+            'apellido' => $apellido,
+            'contratista_id' => $contratista->id,
         ]);
     }
 
