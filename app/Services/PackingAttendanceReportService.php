@@ -254,6 +254,12 @@ class PackingAttendanceReportService
             'status_priority' => $this->statusPriority($status),
             'has_multiple_marks' => $marcaciones->count() > 1,
             'marcaciones_count' => $marcaciones->count(),
+            'ubicaciones' => $marcaciones
+                ->map(fn (MarcacionPacking $m): ?string => $m->ubicacion?->nombre_completo ?? $m->ubicacion_texto)
+                ->filter()
+                ->unique()
+                ->values()
+                ->all(),
             'marcaciones' => $this->formatMarcaciones($marcaciones),
         ];
     }

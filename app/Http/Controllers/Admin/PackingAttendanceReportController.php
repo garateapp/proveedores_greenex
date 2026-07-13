@@ -143,6 +143,7 @@ class PackingAttendanceReportController extends Controller
             'status_label' => $row['status_label'],
             'has_multiple_marks' => $row['has_multiple_marks'],
             'marcaciones_count' => $row['marcaciones_count'],
+            'ubicaciones' => $row['ubicaciones'],
             'marcaciones' => $row['marcaciones']->map(fn (array $marcacion): array => [
                 'id' => $marcacion['id'],
                 'marcado_en' => $this->formatDateTime($marcacion['marcado_en']),

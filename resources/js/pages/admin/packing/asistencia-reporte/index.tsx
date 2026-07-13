@@ -95,6 +95,7 @@ interface ReportRow {
     status_label: string;
     has_multiple_marks: boolean;
     marcaciones_count: number;
+    ubicaciones: string[];
     marcaciones: MarcacionDetail[];
 }
 
@@ -196,13 +197,14 @@ function ReportRowsTable({ rows, emptyLabel }: { rows: ReportRow[]; emptyLabel: 
                         <TableHead>Contratista / Depto.</TableHead>
                         <TableHead>Estado</TableHead>
                         <TableHead>Control acceso</TableHead>
+                        <TableHead>Ubicación</TableHead>
                         <TableHead>Marcaciones app</TableHead>
                     </TableRow>
                 </TableHeader>
                 <TableBody>
                     {rows.length === 0 ? (
                         <TableRow>
-                            <TableCell colSpan={6} className="py-8 text-center text-muted-foreground">
+                            <TableCell colSpan={7} className="py-8 text-center text-muted-foreground">
                                 {emptyLabel}
                             </TableCell>
                         </TableRow>
@@ -235,6 +237,19 @@ function ReportRowsTable({ rows, emptyLabel }: { rows: ReportRow[]; emptyLabel: 
                                         <span>Entrada: {formatTime(row.primera_entrada)}</span>
                                         <span>Salida: {formatTime(row.ultima_salida)}</span>
                                     </div>
+                                </TableCell>
+                                <TableCell className="min-w-48">
+                                    {row.ubicaciones.length === 0 ? (
+                                        <span className="text-muted-foreground">-</span>
+                                    ) : (
+                                        <div className="flex flex-col gap-1">
+                                            {row.ubicaciones.map((ubicacion, index) => (
+                                                <span key={index} className="text-sm">
+                                                    {ubicacion}
+                                                </span>
+                                            ))}
+                                        </div>
+                                    )}
                                 </TableCell>
                                 <TableCell className="min-w-64">
                                     <MarcacionesList marcaciones={row.marcaciones} />

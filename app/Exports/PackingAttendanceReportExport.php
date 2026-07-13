@@ -6,7 +6,6 @@ use PhpOffice\PhpSpreadsheet\Spreadsheet;
 use PhpOffice\PhpSpreadsheet\Style\Alignment;
 use PhpOffice\PhpSpreadsheet\Style\Border;
 use PhpOffice\PhpSpreadsheet\Style\Fill;
-use PhpOffice\PhpSpreadsheet\Style\Font;
 use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
 
 class PackingAttendanceReportExport
@@ -82,7 +81,7 @@ class PackingAttendanceReportExport
             headers: ['Turno', 'Horario', 'Total', 'App+Control', 'App sin control', 'Control sin app', 'Multiples'],
             rows: $this->report['totals_by_turno']->map(fn (array $item): array => [
                 $item['turno_nombre'],
-                $item['turno_inicio']?->format('H:i') . ' - ' . $item['turno_fin']?->format('H:i'),
+                $item['turno_inicio']?->format('H:i').' - '.$item['turno_fin']?->format('H:i'),
                 $item['total'],
                 $item['app_control'],
                 $item['app_sin_control'],
@@ -132,6 +131,7 @@ class PackingAttendanceReportExport
             'Primera entrada',
             'Ultima salida',
             'Estado',
+            'Ubicación',
             'Marcaciones',
         ];
 
@@ -142,15 +142,15 @@ class PackingAttendanceReportExport
             $sheet->setCellValue("{$col}{$headerRow}", $header);
         }
 
-        $sheet->getStyle("A{$headerRow}:J{$headerRow}")
+        $sheet->getStyle("A{$headerRow}:K{$headerRow}")
             ->getFont()
             ->setBold(true)
             ->setColor(new \PhpOffice\PhpSpreadsheet\Style\Color(self::HEADER_FONT));
-        $sheet->getStyle("A{$headerRow}:J{$headerRow}")
+        $sheet->getStyle("A{$headerRow}:K{$headerRow}")
             ->getFill()
             ->setFillType(Fill::FILL_SOLID)
             ->setStartColor(new \PhpOffice\PhpSpreadsheet\Style\Color(self::HEADER_FILL));
-        $sheet->getStyle("A{$headerRow}:J{$headerRow}")
+        $sheet->getStyle("A{$headerRow}:K{$headerRow}")
             ->getAlignment()
             ->setHorizontal(Alignment::HORIZONTAL_CENTER);
 
@@ -159,7 +159,7 @@ class PackingAttendanceReportExport
         foreach ($this->report['rows'] as $rowData) {
             $horario = '';
             if ($rowData['turno_inicio'] instanceof \Illuminate\Support\Carbon) {
-                $horario = $rowData['turno_inicio']->format('H:i') . ' - ' . $rowData['turno_fin']?->format('H:i');
+                $horario = $rowData['turno_inicio']->format('H:i').' - '.$rowData['turno_fin']?->format('H:i');
             }
 
             $marcacionesText = $rowData['marcaciones']
@@ -180,9 +180,12 @@ class PackingAttendanceReportExport
             $sheet->setCellValue("H{$currentRow}", $rowData['ultima_salida']?->format('Y-m-d H:i:s'));
             $sheet->setCellValue("I{$currentRow}", $rowData['status_label']);
 
+            $ubicacionesText = implode(', ', $rowData['ubicaciones'] ?? []);
+            $sheet->setCellValue("J{$currentRow}", $ubicacionesText !== '' ? $ubicacionesText : null);
+
             if ($marcacionesText !== '') {
-                $sheet->setCellValue("J{$currentRow}", $marcacionesText);
-                $sheet->getStyle("J{$currentRow}")->getAlignment()->setWrapText(true);
+                $sheet->setCellValue("K{$currentRow}", $marcacionesText);
+                $sheet->getStyle("K{$currentRow}")->getAlignment()->setWrapText(true);
             }
 
             $statusColor = self::COLORS[$rowData['status']] ?? null;
@@ -194,12 +197,12 @@ class PackingAttendanceReportExport
             $currentRow++;
         }
 
-        foreach (range('A', 'J') as $col) {
+        foreach (range('A', 'K') as $col) {
             $sheet->getColumnDimension($col)->setAutoSize(true);
         }
 
-        $sheet->getColumnDimension('J')->setWidth(40);
-        $sheet->getStyle("A1:J{$currentRow}")
+        $sheet->getColumnDimension('K')->setWidth(40);
+        $sheet->getStyle("A1:K{$currentRow}")
             ->getBorders()
             ->getAllBorders()
             ->setBorderStyle(Border::BORDER_THIN);
@@ -237,7 +240,7 @@ class PackingAttendanceReportExport
             $currentRow++;
         }
 
-        $sheet->getStyle("A{$headerRow}:{$lastCol}" . ($currentRow - 1))
+        $sheet->getStyle("A{$headerRow}:{$lastCol}".($currentRow - 1))
             ->getBorders()
             ->getAllBorders()
             ->setBorderStyle(Border::BORDER_THIN);
