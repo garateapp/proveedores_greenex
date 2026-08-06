@@ -1,8 +1,8 @@
 export default function AppLogo() {
     return (
         <img
-            src="/img/logo-novafresh.png"
-            alt="Novafresh"
+            src="/img/logo_garate.png"
+            alt="Gárate Hermanos"
             className="h-25 w-35 object-contain"
         />
     );
