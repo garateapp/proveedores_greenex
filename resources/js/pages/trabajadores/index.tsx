@@ -291,7 +291,7 @@ export default function TrabajadoresIndex({ trabajadores, filters, contratistas 
                             {faenasDisponibles.length > 0 && (
                                 <div className="space-y-2">
                                     <label className="text-sm font-medium text-foreground" htmlFor="faena_id">
-                                        Faena (opcional)
+                                        Faena
                                     </label>
                                     <select
                                         id="faena_id"

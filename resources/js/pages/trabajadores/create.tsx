@@ -191,7 +191,7 @@ export default function TrabajadorCreate({ contratistas, faenasDisponibles }: Pr
                                             onValueChange={(value) => setData('faena_id', value)}
                                         >
                                             <SelectTrigger>
-                                                <SelectValue placeholder="Seleccione una faena (opcional)" />
+                                                <SelectValue placeholder="Seleccione una faena" />
                                             </SelectTrigger>
                                             <SelectContent>
                                                 {faenasDisponibles.map((faena) => (
