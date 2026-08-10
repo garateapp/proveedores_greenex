@@ -103,15 +103,7 @@ export function AppSidebar() {
                   icon: ClipboardList,
               },
           ]
-        : isSupervisor
-          ? []
-          : [
-                {
-                    title: 'Faenas',
-                    href: '/faenas',
-                    icon: MapPin,
-                },
-            ];
+        : [];
 
     const contratistasItems: NavItem[] = [
         {
@@ -124,11 +116,11 @@ export function AppSidebar() {
             href: '/estados-pago',
             icon: CreditCard,
         },
-        {
-            title: 'Asistencia',
-            href: '/asistencias',
-            icon: Clock,
-        },
+        // {
+        //     title: 'Asistencia',
+        //     href: '/asistencias',
+        //     icon: Clock,
+        // },
         {
             title: 'Marcaciones Packing',
             href: '/packing/marcaciones',
@@ -161,11 +153,7 @@ export function AppSidebar() {
     const herramientasItems: NavItem[] = isSupervisor
         ? []
         : [
-              {
-                  title: 'Cuadratura asistencia',
-                  href: '/herramientas/cuadratura-asistencia',
-                  icon: Wrench,
-              },
+
               ...(isAdmin
                   ? [
                         {
@@ -173,6 +161,11 @@ export function AppSidebar() {
                             href: '/admin/packing/asistencia-reporte',
                             icon: ClipboardCheck,
                         },
+                         {
+                  title: 'Cuadratura asistencia',
+                  href: '/herramientas/cuadratura-asistencia',
+                  icon: Wrench,
+              },
                     ]
                   : []),
           ];
