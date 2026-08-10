@@ -109,7 +109,7 @@ export default function Welcome() {
 
                             <span className="inline-flex items-center gap-2 rounded-full border border-[var(--brand-green)]/30 bg-white/65 px-3 py-1 text-xs font-semibold uppercase tracking-[0.16em] text-[var(--brand-green)]">
                                 <Zap className="h-3.5 w-3.5" />
-                                Greenex Control Layer
+                                Gárate Control Layer
                             </span>
 
                             <h1 className="mt-4 max-w-2xl text-4xl leading-tight font-black tracking-tight sm:text-5xl">
