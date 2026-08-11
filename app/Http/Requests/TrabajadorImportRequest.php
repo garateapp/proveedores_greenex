@@ -41,7 +41,7 @@ class TrabajadorImportRequest extends FormRequest
         }
 
         $rules['faena_id'] = [
-            'nullable',
+            'required',
             'integer',
             Rule::exists('faenas', 'id'),
         ];
@@ -63,6 +63,9 @@ class TrabajadorImportRequest extends FormRequest
             'contratista_id.required' => 'Debe seleccionar un contratista.',
             'contratista_id.integer' => 'El contratista seleccionado no es válido.',
             'contratista_id.exists' => 'El contratista seleccionado no existe.',
+            'faena_id.required' => 'Debe seleccionar una faena.',
+            'faena_id.integer' => 'La faena seleccionada no es válida.',
+            'faena_id.exists' => 'La faena seleccionada no existe.',
         ];
     }
 }

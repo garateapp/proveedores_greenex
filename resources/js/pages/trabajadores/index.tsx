@@ -1,6 +1,12 @@
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import {
+    Card,
+    CardContent,
+    CardDescription,
+    CardHeader,
+    CardTitle,
+} from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
 import {
@@ -80,9 +86,16 @@ interface Props {
     faenasDisponibles?: FaenaOption[];
 }
 
-export default function TrabajadoresIndex({ trabajadores, filters, contratistas = [], faenasDisponibles = [] }: Props) {
+export default function TrabajadoresIndex({
+    trabajadores,
+    filters,
+    contratistas = [],
+    faenasDisponibles = [],
+}: Props) {
     const [search, setSearch] = useState(filters.search || '');
-    const page = usePage<SharedData & { contratistas?: { value: number; label: string }[] }>();
+    const page = usePage<
+        SharedData & { contratistas?: { value: number; label: string }[] }
+    >();
     const isAdmin = page.props.auth?.user?.isAdmin ?? false;
 
     const { data, setData, post, processing, errors, progress } = useForm({
@@ -95,7 +108,9 @@ export default function TrabajadoresIndex({ trabajadores, filters, contratistas 
     const [isDragging, setIsDragging] = useState(false);
 
     const defaultContratista = useMemo(() => {
-        const list = contratistas.length ? contratistas : (page.props.contratistas ?? []);
+        const list = contratistas.length
+            ? contratistas
+            : (page.props.contratistas ?? []);
         return list[0]?.value?.toString() ?? '';
     }, [contratistas, page.props.contratistas]);
 
@@ -111,7 +126,11 @@ export default function TrabajadoresIndex({ trabajadores, filters, contratistas 
     };
 
     const handleFilterEstado = (estado: string) => {
-        router.get('/trabajadores', { ...filters, estado }, { preserveState: true });
+        router.get(
+            '/trabajadores',
+            { ...filters, estado },
+            { preserveState: true },
+        );
     };
 
     const handleFileChange = (file: File | null) => {
@@ -174,7 +193,9 @@ export default function TrabajadoresIndex({ trabajadores, filters, contratistas 
                 {/* Header */}
                 <div className="flex items-center justify-between">
                     <div>
-                        <h1 className="text-3xl font-bold tracking-tight">Gestión de Personal</h1>
+                        <h1 className="text-3xl font-bold tracking-tight">
+                            Gestión de Personal
+                        </h1>
                         <p className="text-muted-foreground">
                             Administre los trabajadores de su organización
                         </p>
@@ -206,14 +227,15 @@ export default function TrabajadoresIndex({ trabajadores, filters, contratistas 
                     <CardHeader>
                         <CardTitle>Filtros</CardTitle>
                         <CardDescription>
-                            Busque y filtre trabajadores por diferentes criterios
+                            Busque y filtre trabajadores por diferentes
+                            criterios
                         </CardDescription>
                     </CardHeader>
                     <CardContent className="space-y-4">
                         {/* Search */}
                         <form onSubmit={handleSearch} className="flex gap-2">
                             <div className="relative flex-1">
-                                <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+                                <Search className="absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
                                 <Input
                                     type="text"
                                     placeholder="Buscar por nombre, apellido o RUT..."
@@ -228,21 +250,31 @@ export default function TrabajadoresIndex({ trabajadores, filters, contratistas 
                         {/* Estado filters */}
                         <div className="flex gap-2">
                             <Button
-                                variant={!filters.estado ? 'default' : 'outline'}
+                                variant={
+                                    !filters.estado ? 'default' : 'outline'
+                                }
                                 size="sm"
                                 onClick={() => handleFilterEstado('')}
                             >
                                 Todos
                             </Button>
                             <Button
-                                variant={filters.estado === 'activo' ? 'default' : 'outline'}
+                                variant={
+                                    filters.estado === 'activo'
+                                        ? 'default'
+                                        : 'outline'
+                                }
                                 size="sm"
                                 onClick={() => handleFilterEstado('activo')}
                             >
                                 Activos
                             </Button>
                             <Button
-                                variant={filters.estado === 'inactivo' ? 'default' : 'outline'}
+                                variant={
+                                    filters.estado === 'inactivo'
+                                        ? 'default'
+                                        : 'outline'
+                                }
                                 size="sm"
                                 onClick={() => handleFilterEstado('inactivo')}
                             >
@@ -256,65 +288,101 @@ export default function TrabajadoresIndex({ trabajadores, filters, contratistas 
                 <Card>
                     <CardHeader>
                         <CardTitle>Importación masiva</CardTitle>
-                        <CardDescription>Cargue la plantilla CSV para crear trabajadores en lote.</CardDescription>
+                        <CardDescription>
+                            Cargue la plantilla CSV para crear trabajadores en
+                            lote.
+                        </CardDescription>
                     </CardHeader>
                     <CardContent className="space-y-4">
                         <form onSubmit={submitImport} className="space-y-4">
                             {isAdmin && (
                                 <div className="space-y-2">
-                                    <label className="text-sm font-medium text-foreground" htmlFor="contratista_id">
+                                    <label
+                                        className="text-sm font-medium text-foreground"
+                                        htmlFor="contratista_id"
+                                    >
                                         Contratista
                                     </label>
                                     <select
                                         id="contratista_id"
-                                        className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                                        className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm shadow-sm focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
                                         value={data.contratista_id}
-                                        onChange={(e) => setData('contratista_id', e.target.value)}
+                                        onChange={(e) =>
+                                            setData(
+                                                'contratista_id',
+                                                e.target.value,
+                                            )
+                                        }
                                         required
                                     >
-                                        <option value="">Seleccione un contratista</option>
-                                        {(page.props.contratistas ?? []).map((contratistaOption) => (
-                                            <option
-                                                key={contratistaOption.value}
-                                                value={contratistaOption.value}
-                                            >
-                                                {contratistaOption.label}
-                                            </option>
-                                        ))}
+                                        <option value="">
+                                            Seleccione un contratista
+                                        </option>
+                                        {(page.props.contratistas ?? []).map(
+                                            (contratistaOption) => (
+                                                <option
+                                                    key={
+                                                        contratistaOption.value
+                                                    }
+                                                    value={
+                                                        contratistaOption.value
+                                                    }
+                                                >
+                                                    {contratistaOption.label}
+                                                </option>
+                                            ),
+                                        )}
                                     </select>
                                     {errors.contratista_id && (
-                                        <p className="text-sm text-destructive">{errors.contratista_id as string}</p>
+                                        <p className="text-sm text-destructive">
+                                            {errors.contratista_id as string}
+                                        </p>
                                     )}
                                 </div>
                             )}
 
-                            {faenasDisponibles.length > 0 && (
-                                <div className="space-y-2">
-                                    <label className="text-sm font-medium text-foreground" htmlFor="faena_id">
-                                        Faena
-                                    </label>
-                                    <select
-                                        id="faena_id"
-                                        className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                                        value={data.faena_id}
-                                        onChange={(e) => setData('faena_id', e.target.value)}
-                                    >
-                                        <option value="">Sin faena</option>
-                                        {faenasDisponibles.map((faena) => (
-                                            <option key={faena.id} value={faena.id}>
-                                                {faena.codigo} - {faena.nombre}{faena.tipo_faena ? ` (${faena.tipo_faena})` : ''}
-                                            </option>
-                                        ))}
-                                    </select>
-                                    {errors.faena_id && (
-                                        <p className="text-sm text-destructive">{errors.faena_id as string}</p>
-                                    )}
-                                </div>
-                            )}
+                            <div className="space-y-2">
+                                <label
+                                    className="text-sm font-medium text-foreground"
+                                    htmlFor="faena_id"
+                                >
+                                    Faena
+                                </label>
+                                <select
+                                    id="faena_id"
+                                    className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm shadow-sm focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+                                    value={data.faena_id}
+                                    onChange={(e) =>
+                                        setData('faena_id', e.target.value)
+                                    }
+                                    required
+                                >
+                                    <option value="" disabled>
+                                        {faenasDisponibles.length > 0
+                                            ? 'Seleccione una faena'
+                                            : 'No hay faenas disponibles'}
+                                    </option>
+                                    {faenasDisponibles.map((faena) => (
+                                        <option key={faena.id} value={faena.id}>
+                                            {faena.codigo} - {faena.nombre}
+                                            {faena.tipo_faena
+                                                ? ` (${faena.tipo_faena})`
+                                                : ''}
+                                        </option>
+                                    ))}
+                                </select>
+                                {errors.faena_id && (
+                                    <p className="text-sm text-destructive">
+                                        {errors.faena_id as string}
+                                    </p>
+                                )}
+                            </div>
 
                             <div
                                 className={`flex flex-col items-center justify-center rounded-md border border-dashed p-6 text-sm transition ${
-                                    isDragging ? 'border-primary bg-primary/5' : 'border-border hover:border-primary'
+                                    isDragging
+                                        ? 'border-primary bg-primary/5'
+                                        : 'border-border hover:border-primary'
                                 }`}
                                 onDrop={handleDrop}
                                 onDragOver={handleDragOver}
@@ -323,38 +391,62 @@ export default function TrabajadoresIndex({ trabajadores, filters, contratistas 
                                 <p className="text-center text-muted-foreground">
                                     Arrastre y suelte el archivo CSV aquí
                                 </p>
-                                <p className="text-center text-muted-foreground">o</p>
+                                <p className="text-center text-muted-foreground">
+                                    o
+                                </p>
                                 <Button
                                     type="button"
                                     variant="secondary"
-                                    onClick={() => fileInputRef.current?.click()}
+                                    onClick={() =>
+                                        fileInputRef.current?.click()
+                                    }
                                     className="mt-2"
                                 >
                                     Seleccionar archivo
                                 </Button>
                                 {data.file && (
-                                    <p className="mt-3 text-center text-foreground">{data.file.name}</p>
+                                    <p className="mt-3 text-center text-foreground">
+                                        {data.file.name}
+                                    </p>
                                 )}
                                 <input
                                     ref={fileInputRef}
                                     type="file"
                                     accept=".csv"
                                     className="hidden"
-                                    onChange={(e) => handleFileChange(e.target.files?.[0] || null)}
+                                    onChange={(e) =>
+                                        handleFileChange(
+                                            e.target.files?.[0] || null,
+                                        )
+                                    }
                                     required
                                 />
                             </div>
                             {progress && (
-                                <p className="text-sm text-muted-foreground">Subiendo: {progress.percentage}%</p>
+                                <p className="text-sm text-muted-foreground">
+                                    Subiendo: {progress.percentage}%
+                                </p>
                             )}
-                            {errors.file && <p className="text-sm text-destructive">{errors.file as string}</p>}
+                            {errors.file && (
+                                <p className="text-sm text-destructive">
+                                    {errors.file as string}
+                                </p>
+                            )}
 
                             <div className="flex gap-3">
-                                <Button type="submit" disabled={processing || !data.file}>
+                                <Button
+                                    type="submit"
+                                    disabled={
+                                        processing ||
+                                        !data.file ||
+                                        !data.faena_id
+                                    }
+                                >
                                     Importar CSV
                                 </Button>
                                 <p className="text-sm text-muted-foreground">
-                                    Solo formato CSV (use la plantilla de arriba).
+                                    Solo formato CSV (use la plantilla de
+                                    arriba).
                                 </p>
                             </div>
                         </form>
@@ -379,36 +471,60 @@ export default function TrabajadoresIndex({ trabajadores, filters, contratistas 
                                     <TableHead>Estado</TableHead>
                                     <TableHead>Docs obligatorios</TableHead>
                                     <TableHead>Fecha Ingreso</TableHead>
-                                    <TableHead className="text-right">Acciones</TableHead>
+                                    <TableHead className="text-right">
+                                        Acciones
+                                    </TableHead>
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
                                 {trabajadores.data.length === 0 ? (
                                     <TableRow>
-                                        <TableCell colSpan={7} className="text-center text-muted-foreground">
+                                        <TableCell
+                                            colSpan={7}
+                                            className="text-center text-muted-foreground"
+                                        >
                                             No se encontraron trabajadores
                                         </TableCell>
                                     </TableRow>
                                 ) : (
                                     trabajadores.data.map((trabajador) => (
                                         <TableRow key={trabajador.id}>
-                                            <TableCell className="font-mono">{trabajador.documento}</TableCell>
+                                            <TableCell className="font-mono">
+                                                {trabajador.documento}
+                                            </TableCell>
                                             <TableCell className="font-medium">
-                                                {trabajador.nombre} {trabajador.apellido}
+                                                {trabajador.nombre}{' '}
+                                                {trabajador.apellido}
                                             </TableCell>
                                             <TableCell>
-                                                {trabajador.contratista.nombre_fantasia || trabajador.contratista.razon_social}
+                                                {trabajador.contratista
+                                                    .nombre_fantasia ||
+                                                    trabajador.contratista
+                                                        .razon_social}
                                             </TableCell>
                                             <TableCell>
                                                 <div className="flex items-center gap-2">
                                                     <Badge
-                                                        variant={trabajador.estado === 'activo' ? 'default' : 'secondary'}
+                                                        variant={
+                                                            trabajador.estado ===
+                                                            'activo'
+                                                                ? 'default'
+                                                                : 'secondary'
+                                                        }
                                                     >
                                                         {trabajador.estado}
                                                     </Badge>
                                                     <Switch
-                                                        checked={trabajador.estado === 'activo'}
-                                                        onCheckedChange={() => toggleEstado(trabajador.id, trabajador.estado)}
+                                                        checked={
+                                                            trabajador.estado ===
+                                                            'activo'
+                                                        }
+                                                        onCheckedChange={() =>
+                                                            toggleEstado(
+                                                                trabajador.id,
+                                                                trabajador.estado,
+                                                            )
+                                                        }
                                                         aria-label="Cambiar estado"
                                                     />
                                                 </div>
@@ -417,12 +533,16 @@ export default function TrabajadoresIndex({ trabajadores, filters, contratistas 
                                                 <div className="min-w-[180px] space-y-1.5">
                                                     <div className="flex items-center justify-between text-xs">
                                                         <span className="text-muted-foreground">
-                                                            {trabajador.documentos_obligatorios_total === 0
+                                                            {trabajador.documentos_obligatorios_total ===
+                                                            0
                                                                 ? 'Sin requeridos'
                                                                 : `${trabajador.documentos_obligatorios_cargados}/${trabajador.documentos_obligatorios_total} cargados`}
                                                         </span>
                                                         <span className="font-semibold text-foreground">
-                                                            {trabajador.documentos_obligatorios_porcentaje}%
+                                                            {
+                                                                trabajador.documentos_obligatorios_porcentaje
+                                                            }
+                                                            %
                                                         </span>
                                                     </div>
                                                     <div className="h-2 w-full overflow-hidden rounded-full bg-muted/80">
@@ -438,31 +558,50 @@ export default function TrabajadoresIndex({ trabajadores, filters, contratistas 
                                                         />
                                                     </div>
                                                     <p className="text-[11px] text-muted-foreground">
-                                                        {trabajador.documentos_obligatorios_total === 0
+                                                        {trabajador.documentos_obligatorios_total ===
+                                                        0
                                                             ? 'No aplica'
-                                                            : trabajador.documentos_obligatorios_pendientes === 0
+                                                            : trabajador.documentos_obligatorios_pendientes ===
+                                                                0
                                                               ? 'Completado'
                                                               : `Faltan ${trabajador.documentos_obligatorios_pendientes}`}
                                                     </p>
                                                 </div>
                                             </TableCell>
                                             <TableCell>
-                                                {new Date(trabajador.fecha_ingreso).toLocaleDateString('es-CL')}
+                                                {new Date(
+                                                    trabajador.fecha_ingreso,
+                                                ).toLocaleDateString('es-CL')}
                                             </TableCell>
                                             <TableCell className="text-right">
                                                 <div className="flex justify-end gap-2">
-                                                    <Link href={`/trabajadores/${trabajador.id}`}>
-                                                        <Button variant="ghost" size="sm">
+                                                    <Link
+                                                        href={`/trabajadores/${trabajador.id}`}
+                                                    >
+                                                        <Button
+                                                            variant="ghost"
+                                                            size="sm"
+                                                        >
                                                             Ver
                                                         </Button>
                                                     </Link>
-                                                    <Link href={`/trabajadores/${trabajador.id}/edit`}>
-                                                        <Button variant="ghost" size="sm">
+                                                    <Link
+                                                        href={`/trabajadores/${trabajador.id}/edit`}
+                                                    >
+                                                        <Button
+                                                            variant="ghost"
+                                                            size="sm"
+                                                        >
                                                             Editar
                                                         </Button>
                                                     </Link>
-                                                    <Link href={`/centro-carga?trabajador_id=${trabajador.id}`}>
-                                                        <Button variant="ghost" size="sm">
+                                                    <Link
+                                                        href={`/centro-carga?trabajador_id=${trabajador.id}`}
+                                                    >
+                                                        <Button
+                                                            variant="ghost"
+                                                            size="sm"
+                                                        >
                                                             Carga
                                                         </Button>
                                                     </Link>
@@ -491,7 +630,8 @@ export default function TrabajadoresIndex({ trabajadores, filters, contratistas 
                         {trabajadores.last_page > 1 && (
                             <div className="mt-4 flex items-center justify-between">
                                 <p className="text-sm text-muted-foreground">
-                                    Página {trabajadores.current_page} de {trabajadores.last_page}
+                                    Página {trabajadores.current_page} de{' '}
+                                    {trabajadores.last_page}
                                 </p>
                                 <div className="flex gap-2">
                                     <Link
@@ -501,7 +641,9 @@ export default function TrabajadoresIndex({ trabajadores, filters, contratistas 
                                         <Button
                                             variant="outline"
                                             size="sm"
-                                            disabled={trabajadores.current_page === 1}
+                                            disabled={
+                                                trabajadores.current_page === 1
+                                            }
                                         >
                                             Anterior
                                         </Button>
@@ -513,7 +655,10 @@ export default function TrabajadoresIndex({ trabajadores, filters, contratistas 
                                         <Button
                                             variant="outline"
                                             size="sm"
-                                            disabled={trabajadores.current_page === trabajadores.last_page}
+                                            disabled={
+                                                trabajadores.current_page ===
+                                                trabajadores.last_page
+                                            }
                                         >
                                             Siguiente
                                         </Button>
