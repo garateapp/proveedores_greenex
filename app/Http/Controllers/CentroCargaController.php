@@ -312,9 +312,6 @@ class CentroCargaController extends Controller
             ->all();
 
         $tiposDocumentosCargados = $trabajador->documentosTrabajador()
-            ->whereHas('tipoDocumento', function ($query) {
-                $query->where('permite_multiples_en_mes', false);
-            })
             ->select(['tipo_documento_id', 'firmado_at'])
             ->get()
             ->map(fn ($doc) => [
