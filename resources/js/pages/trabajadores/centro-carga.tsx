@@ -379,7 +379,7 @@ function RequirementTarget({
 }) {
     const { setNodeRef, isOver } = useDroppable({
         id: `target-${requirement.id}`,
-        disabled: uploadedInfo !== null,
+        disabled: uploadedInfo !== null && !requirement.permite_multiples_en_mes,
     });
 
     const isUploaded = uploadedInfo !== null;
@@ -590,9 +590,16 @@ function UploadFileCard({
                             size="sm"
                             variant="outline"
                             onClick={() => onConfirmSuggestion(item.id)}
-                            disabled={uploadedTipoIds.has(
-                                item.suggestion.tipoDocumentoId,
-                            )}
+                            disabled={
+                                uploadedTipoIds.has(
+                                    item.suggestion.tipoDocumentoId,
+                                ) &&
+                                !requirements.find(
+                                    (r) =>
+                                        r.id ===
+                                        item.suggestion?.tipoDocumentoId,
+                                )?.permite_multiples_en_mes
+                            }
                         >
                             Confirmar sugerencia
                         </Button>
@@ -647,7 +654,10 @@ function UploadFileCard({
                         <option
                             key={requirement.id}
                             value={requirement.id}
-                            disabled={uploadedTipoIds.has(requirement.id)}
+                            disabled={
+                                uploadedTipoIds.has(requirement.id) &&
+                                !requirement.permite_multiples_en_mes
+                            }
                         >
                             {requirement.nombre}
                         </option>
@@ -955,6 +965,15 @@ export default function CentroCarga({
         () => new Map(requirements.tipos_documentos_cargados.map((d) => [d.tipo_documento_id, d])),
         [requirements.tipos_documentos_cargados],
     );
+    const tiposConMultiples = useMemo(
+        () =>
+            new Set(
+                requirements.tipos_documentos
+                    .filter((r) => r.permite_multiples_en_mes)
+                    .map((r) => r.id),
+            ),
+        [requirements.tipos_documentos],
+    );
 
     useEffect(() => {
         const trimmedSearch = search.trim();
@@ -1135,7 +1154,10 @@ export default function CentroCarga({
         const fileId = activeId.replace('file-', '');
         const tipoDocumentoId = Number(overId.replace('target-', ''));
 
-        if (uploadedTipoIdsSet.has(tipoDocumentoId)) {
+        if (
+            uploadedTipoIdsSet.has(tipoDocumentoId) &&
+            !tiposConMultiples.has(tipoDocumentoId)
+        ) {
             return;
         }
 
@@ -1172,7 +1194,10 @@ export default function CentroCarga({
             updateItem(id, (item) => {
                 if (
                     !item.suggestion ||
-                    uploadedTipoIdsSet.has(item.suggestion.tipoDocumentoId)
+                    (uploadedTipoIdsSet.has(item.suggestion.tipoDocumentoId) &&
+                        !tiposConMultiples.has(
+                            item.suggestion.tipoDocumentoId,
+                        ))
                 ) {
                     return item;
                 }
@@ -1183,7 +1208,7 @@ export default function CentroCarga({
                 };
             });
         },
-        [updateItem, uploadedTipoIdsSet],
+        [updateItem, uploadedTipoIdsSet, tiposConMultiples],
     );
 
     const removeItem = useCallback((id: string): void => {
@@ -1266,28 +1291,19 @@ export default function CentroCarga({
 
                 xhr.onload = () => {
                     if (xhr.status >= 200 && xhr.status < 300) {
-                        const payload = JSON.parse(
-                            xhr.responseText,
-                        ) as UploadResponse;
+                        try {
+                            const payload = JSON.parse(
+                                xhr.responseText,
+                            ) as UploadResponse;
 
-                        updateItem(item.id, (current) => ({
-                            ...current,
-                            uploadStatus: 'success',
-                            uploadProgress: 100,
-                            errorMessage: null,
-                        }));
+                            updateItem(item.id, (current) => ({
+                                ...current,
+                                uploadStatus: 'success',
+                                uploadProgress: 100,
+                                errorMessage: null,
+                            }));
 
-                        setRequirements((previous) => {
-                            const requirement = previous.tipos_documentos.find(
-                                (item) =>
-                                    item.id === payload.data.tipo_documento_id,
-                            );
-
-                            if (requirement?.permite_multiples_en_mes) {
-                                return previous;
-                            }
-
-                            return {
+                            setRequirements((previous) => ({
                                 ...previous,
                                 tipos_documentos_cargados:
                                     previous.tipos_documentos_cargados.some(
@@ -1307,11 +1323,21 @@ export default function CentroCarga({
                                                   motivo_rechazo: null,
                                               },
                                           ],
-                            };
-                        });
+                            }));
 
-                        resolve();
-                        return;
+                            resolve();
+                            return;
+                        } catch {
+                            updateItem(item.id, (current) => ({
+                                ...current,
+                                uploadStatus: 'error',
+                                uploadProgress: 100,
+                                errorMessage:
+                                    'Respuesta inesperada del servidor. Verifica tu sesion e intenta nuevamente.',
+                            }));
+                            resolve();
+                            return;
+                        }
                     }
 
                     let errorMessage = 'No fue posible subir el archivo.';
@@ -1365,7 +1391,8 @@ export default function CentroCarga({
             (item) =>
                 item.matchedTipoDocumentoId !== null &&
                 item.uploadStatus !== 'success' &&
-                !uploadedTipoIdsSet.has(item.matchedTipoDocumentoId),
+                (!uploadedTipoIdsSet.has(item.matchedTipoDocumentoId) ||
+                    tiposConMultiples.has(item.matchedTipoDocumentoId)),
         );
 
         if (toUpload.length === 0) {
@@ -1419,9 +1446,10 @@ export default function CentroCarga({
                 (item) =>
                     item.matchedTipoDocumentoId !== null &&
                     item.uploadStatus !== 'success' &&
-                    !uploadedTipoIdsSet.has(item.matchedTipoDocumentoId),
+                    (!uploadedTipoIdsSet.has(item.matchedTipoDocumentoId) ||
+                        tiposConMultiples.has(item.matchedTipoDocumentoId)),
             ).length,
-        [items, uploadedTipoIdsSet],
+        [items, uploadedTipoIdsSet, tiposConMultiples],
     );
 
     return (

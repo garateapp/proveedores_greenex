@@ -169,6 +169,12 @@ export default function ContratistaDashboard({ contratista, stats, alertas }: Pr
                                     Centro de Carga
                                 </Link>
                             </Button>
+                            <Button asChild variant="outline">
+                                <Link href="/contratistas/documentos">
+                                    <FileText className="mr-2 size-4" />
+                                    Mis Documentos
+                                </Link>
+                            </Button>
                             <Button
                                 asChild
                                 className="bg-gradient-to-r from-[var(--brand-green)] via-[var(--brand-forest)] to-[var(--brand-orange)] text-[var(--primary-foreground)]"

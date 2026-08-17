@@ -46,6 +46,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('centro-carga-contratistas/contratistas/{contratista}/requerimientos', [CentroCargaController::class, 'contratistaRequirements'])->name('centro-carga-contratistas.contratistas.requirements');
     Route::post('centro-carga-contratistas/documentos', [\App\Http\Controllers\DocumentoController::class, 'storeFromCentroCargaContratista'])->name('centro-carga-contratistas.documentos.store');
 
+    // Documentos del contratista (propios + de su personal)
+    Route::get('contratistas/documentos', [ContratistaDashboardController::class, 'documentos'])->name('contratistas.documentos');
+
     // Gestión de trabajadores
     Route::resource('trabajadores', \App\Http\Controllers\TrabajadorController::class);
     Route::post('trabajadores/import', [\App\Http\Controllers\TrabajadorImportController::class, 'import'])->name('trabajadores.import');

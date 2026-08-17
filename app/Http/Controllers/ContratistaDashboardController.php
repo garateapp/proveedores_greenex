@@ -85,6 +85,110 @@ class ContratistaDashboardController extends Controller
     }
 
     /**
+     * Display paginated list of contratista and worker documents.
+     */
+    public function documentos(Request $request): Response
+    {
+        $user = $request->user();
+        $contratista = $user->contratista;
+
+        if (! $contratista) {
+            abort(403);
+        }
+
+        $contratistaId = $contratista->id;
+        $perPage = 15;
+
+        // Contratista-level documents
+        $contratistaDocs = Documento::with(['tipoDocumento'])
+            ->forContratista($contratistaId)
+            ->whereHas('tipoDocumento', fn ($q) => $q->where('es_documento_trabajador', false))
+            ->get()
+            ->map(fn (Documento $doc) => [
+                'id' => $doc->id,
+                'tipo_documento' => [
+                    'id' => $doc->tipoDocumento->id,
+                    'nombre' => $doc->tipoDocumento->nombre,
+                    'codigo' => $doc->tipoDocumento->codigo,
+                ],
+                'es_documento_trabajador' => false,
+                'trabajador' => null,
+                'periodo_ano' => $doc->periodo_ano,
+                'periodo_mes' => $doc->periodo_mes,
+                'estado' => $doc->estado,
+                'motivo_rechazo' => $doc->motivo_rechazo,
+                'fecha_vencimiento' => $doc->fecha_vencimiento?->toDateString(),
+                'archivo_nombre_original' => $doc->archivo_nombre_original,
+                'created_at' => $doc->created_at->toIso8601String(),
+            ]);
+
+        // Worker-level documents
+        $workerDocs = DocumentoTrabajador::with(['tipoDocumento', 'trabajador'])
+            ->whereHas('trabajador', fn ($q) => $q->where('contratista_id', $contratistaId))
+            ->get()
+            ->map(fn (DocumentoTrabajador $doc) => [
+                'id' => $doc->id,
+                'tipo_documento' => [
+                    'id' => $doc->tipoDocumento->id,
+                    'nombre' => $doc->tipoDocumento->nombre,
+                    'codigo' => $doc->tipoDocumento->codigo,
+                ],
+                'es_documento_trabajador' => true,
+                'trabajador' => $doc->trabajador ? [
+                    'id' => $doc->trabajador->id,
+                    'nombre_completo' => $doc->trabajador->nombre_completo,
+                    'documento' => $doc->trabajador->documento,
+                ] : null,
+                'periodo_ano' => null,
+                'periodo_mes' => null,
+                'estado' => $doc->firmado_at ? 'aprobado' : 'pendiente_validacion',
+                'motivo_rechazo' => null,
+                'fecha_vencimiento' => $doc->fecha_vencimiento?->toDateString(),
+                'archivo_nombre_original' => $doc->archivo_nombre_original,
+                'created_at' => $doc->created_at->toIso8601String(),
+            ]);
+
+        $allDocs = $contratistaDocs->concat($workerDocs);
+
+        // Apply filters
+        if ($tipoDocumentoId = $request->input('tipo_documento_id')) {
+            $allDocs = $allDocs->where('tipo_documento.id', (int) $tipoDocumentoId);
+        }
+
+        if ($estado = $request->input('estado')) {
+            $allDocs = $allDocs->where('estado', $estado);
+        }
+
+        if ($ano = $request->input('ano')) {
+            $allDocs = $allDocs->filter(fn ($doc) => $doc['periodo_ano'] == $ano || $doc['es_documento_trabajador']);
+        }
+
+        $allDocs = $allDocs->sortBy([
+            ['created_at', 'desc'],
+        ])->values();
+
+        // Manual pagination
+        $total = $allDocs->count();
+        $currentPage = (int) $request->input('page', 1);
+        $lastPage = (int) ceil($total / $perPage);
+        $paginated = $allDocs->slice(($currentPage - 1) * $perPage, $perPage)->values();
+
+        $tiposDocumentos = TipoDocumento::active()->get(['id', 'nombre', 'codigo']);
+
+        return Inertia::render('contratistas/documentos', [
+            'documentos' => [
+                'data' => $paginated->all(),
+                'current_page' => $currentPage,
+                'last_page' => $lastPage,
+                'per_page' => $perPage,
+                'total' => $total,
+            ],
+            'tiposDocumentos' => $tiposDocumentos,
+            'filters' => $request->only(['tipo_documento_id', 'estado', 'ano']),
+        ]);
+    }
+
+    /**
      * @return array<string, mixed>
      */
     private function buildAdminDashboardPayload(): array
