@@ -8,6 +8,7 @@ use App\Models\TipoDocumento;
 use App\Models\Trabajador;
 use App\Models\User;
 use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -163,7 +164,7 @@ class TrabajadorController extends Controller
         $user = $request->user();
 
         $validated = $request->validate([
-            'documento' => ['required', 'string', 'regex:/^[0-9]{7,8}-[0-9kK]$/', 'unique:trabajadores,documento'],
+            'documento' => ['required', 'string', 'regex:/^[0-9]{7,8}-[0-9kK]$/', Rule::unique('trabajadores', 'documento')->withoutTrashed()],
             'nombre' => ['required', 'string', 'max:255'],
             'apellido' => ['required', 'string', 'max:255'],
             'email' => ['nullable', 'email', 'max:255'],
@@ -181,9 +182,14 @@ class TrabajadorController extends Controller
         // Extract ID from documento
         $id = Trabajador::extractIdFromDocumento($validated['documento']);
 
-        // Check if ID already exists
-        if (Trabajador::find($id)) {
-            return back()->withErrors(['documento' => 'Ya existe un trabajador con este RUT.']);
+        // Check if ID already exists (including soft-deleted) and purge old record
+        $existing = Trabajador::withTrashed()->find($id);
+        if ($existing) {
+            if ($existing->trashed()) {
+                $existing->forceDelete();
+            } else {
+                return back()->withErrors(['documento' => 'Ya existe un trabajador con este RUT.']);
+            }
         }
 
         $contratistaId = $user->isAdmin() ? $request->input('contratista_id') : $user->contratista_id;
