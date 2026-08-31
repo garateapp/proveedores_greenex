@@ -139,6 +139,11 @@ export function AppSidebar() {
             href: '/centro-carga-contratistas',
             icon: UploadCloud,
         },
+        {
+            title: 'Documentos',
+            href: '/documentos',
+            icon: FileText,
+        },
         ...(isAdmin || isSupervisor
             ? [
                   {

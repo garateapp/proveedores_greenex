@@ -37,9 +37,9 @@ class ContratistaDashboardController extends Controller
             'horas_trabajadas_mes' => $this->getHorasTrabajadas($contratista->id),
             'pagos_pendientes' => EstadoPago::forContratista($contratista->id)->pendingPayment()->count(),
             'estado_cumplimiento' => $this->getEstadoCumplimiento($contratista->id),
-            'total_documentos_subidos' => Documento::forContratista($contratista->id)->count(),
-            'documentos_sin_aprobacion' => Documento::forContratista($contratista->id)->byEstado('pendiente_validacion')->count(),
-            'documentos_rechazados' => Documento::forContratista($contratista->id)->byEstado('rechazado')->count(),
+            'total_documentos_subidos' => Documento::forContratista($contratista->id)->latestVersion()->count(),
+            'documentos_sin_aprobacion' => Documento::forContratista($contratista->id)->latestVersion()->byEstado('pendiente_validacion')->count(),
+            'documentos_rechazados' => Documento::forContratista($contratista->id)->latestVersion()->byEstado('rechazado')->count(),
         ];
 
         $alertas = Alerta::forContratista($contratista->id)
@@ -620,11 +620,11 @@ class ContratistaDashboardController extends Controller
         return [
             'total_contratistas' => Contratista::query()->where('estado', 'activo')->count(),
             'total_trabajadores' => Trabajador::active()->count(),
-            'documentos_por_aprobar' => Documento::byEstado('pendiente_validacion')->count(),
+            'documentos_por_aprobar' => Documento::latestVersion()->byEstado('pendiente_validacion')->count(),
             'alertas_activas' => Alerta::unread()->count(),
-            'total_documentos_subidos' => Documento::query()->count(),
-            'documentos_sin_aprobacion' => Documento::byEstado('pendiente_validacion')->count(),
-            'documentos_rechazados' => Documento::byEstado('rechazado')->count(),
+            'total_documentos_subidos' => Documento::latestVersion()->count(),
+            'documentos_sin_aprobacion' => Documento::latestVersion()->byEstado('pendiente_validacion')->count(),
+            'documentos_rechazados' => Documento::latestVersion()->byEstado('rechazado')->count(),
         ];
     }
 

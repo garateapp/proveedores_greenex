@@ -31,8 +31,10 @@ class DocumentoController extends Controller
             ->whereHas('tipoDocumento', function ($tipoDocumentoQuery) {
                 $tipoDocumentoQuery->where('es_documento_trabajador', false);
             })
-            ->orderBy('periodo_ano', 'desc')
-            ->orderBy('periodo_mes', 'desc');
+            ->orderByDesc('periodo_ano')
+            ->orderByDesc('periodo_mes')
+            ->orderBy('tipo_documento_id')
+            ->orderByDesc('version');
 
         // Filter by contratista if not admin
         if (! $user->isAdmin()) {
@@ -72,7 +74,12 @@ class DocumentoController extends Controller
             $query->where('periodo_ano', $ano);
         }
 
-        $documentos = $query->paginate(15)->withQueryString();
+        // Filter to latest version only (default behavior)
+        if (! $request->boolean('incluir_todas_versiones')) {
+            $query->latestVersion();
+        }
+
+        $documentos = $query->paginate(50)->withQueryString();
 
         $tiposDocumentos = TipoDocumento::active()
             ->where('es_documento_trabajador', false)
@@ -120,7 +127,7 @@ class DocumentoController extends Controller
             'tiposDocumentos' => $tiposDocumentos,
             'contratistas' => $contratistas,
             'trabajadores' => $trabajadores,
-            'filters' => $request->only(['tipo_documento_id', 'estado', 'ano', 'contratista_id', 'trabajador_id']),
+            'filters' => $request->only(['tipo_documento_id', 'estado', 'ano', 'contratista_id', 'trabajador_id', 'incluir_todas_versiones']),
         ]);
     }
 
@@ -192,14 +199,16 @@ class DocumentoController extends Controller
     /**
      * Show the form for uploading a new documento.
      */
-    public function create(): Response
+    public function create(Request $request): Response
     {
+        $user = $request->user();
+
         $tiposDocumentos = TipoDocumento::active()
             ->where('es_documento_trabajador', false)
             ->get();
         $contratistas = [];
 
-        if (request()->user()->isAdmin()) {
+        if ($user->isAdmin()) {
             $contratistas = Contratista::query()
                 ->where('estado', 'activo')
                 ->orderBy('razon_social')
@@ -210,9 +219,37 @@ class DocumentoController extends Controller
                 ]);
         }
 
+        // Pre-fill info from query params (re-upload flow)
+        $documentoExistente = null;
+        if ($request->filled('tipo_documento_id') && $request->filled('periodo_ano')) {
+            $contratistaId = $user->isAdmin()
+                ? (int) $request->input('contratista_id')
+                : (int) $user->contratista_id;
+
+            $documentoExistente = Documento::query()
+                ->where('contratista_id', $contratistaId)
+                ->where('tipo_documento_id', (int) $request->input('tipo_documento_id'))
+                ->where('periodo_ano', (int) $request->input('periodo_ano'))
+                ->when(
+                    $request->filled('periodo_mes'),
+                    fn ($query) => $query->where('periodo_mes', (int) $request->input('periodo_mes')),
+                    fn ($query) => $query->whereNull('periodo_mes'),
+                )
+                ->latestVersion()
+                ->first();
+
+            if ($documentoExistente) {
+                $documentoExistente = [
+                    'version' => $documentoExistente->version,
+                    'estado' => $documentoExistente->estado,
+                ];
+            }
+        }
+
         return Inertia::render('documentos/create', [
             'tiposDocumentos' => $tiposDocumentos,
             'contratistas' => $contratistas,
+            'documentoExistente' => $documentoExistente,
         ]);
     }
 
@@ -262,19 +299,31 @@ class DocumentoController extends Controller
         }
 
         $contratistaId = $user->isAdmin() ? $request->input('contratista_id') : $user->contratista_id;
-
-        if ($this->hasContratistaPeriodoDuplicate(
-            contratistaId: (int) $contratistaId,
-            tipoDocumento: $tipoDocumento,
-            periodoAno: (int) $validated['periodo_ano'],
-            periodoMes: isset($validated['periodo_mes']) ? (int) $validated['periodo_mes'] : null,
-        )) {
-            return back()->withErrors([
-                'periodo_mes' => 'Ya existe un documento de este tipo para el período seleccionado.',
-            ]);
-        }
+        $contratistaId = (int) $contratistaId;
 
         $this->ensureFileIsReadableAndNotCorrupted($file);
+
+        // Calculate version based on existing documents for the same period/tipo
+        $version = $this->getNextVersion(
+            contratistaId: $contratistaId,
+            tipoDocumentoId: $tipoDocumento->id,
+            periodoAno: (int) $validated['periodo_ano'],
+            periodoMes: isset($validated['periodo_mes']) ? (int) $validated['periodo_mes'] : null,
+        );
+
+        // Mark previous versions as no longer latest
+        Documento::query()
+            ->where('contratista_id', $contratistaId)
+            ->where('tipo_documento_id', $tipoDocumento->id)
+            ->where('periodo_ano', (int) $validated['periodo_ano'])
+            ->where(function ($query) use ($validated) {
+                $query->whereNull('periodo_mes');
+                if (isset($validated['periodo_mes'])) {
+                    $query->orWhere('periodo_mes', (int) $validated['periodo_mes']);
+                }
+            })
+            ->where('es_ultima_version', true)
+            ->update(['es_ultima_version' => false]);
 
         // Store file
         $path = $file->store('documentos/'.$contratistaId.'/'.$tipoDocumento->codigo, 'private');
@@ -294,11 +343,13 @@ class DocumentoController extends Controller
             'tipo_documento_id' => $tipoDocumento->id,
             'periodo_ano' => $validated['periodo_ano'],
             'periodo_mes' => $validated['periodo_mes'],
+            'version' => $version,
+            'es_ultima_version' => true,
             'archivo_nombre_original' => $file->getClientOriginalName(),
             'archivo_ruta' => $path,
             'archivo_tamano_kb' => round($fileSizeKb),
             'estado' => $tipoDocumento->requiere_validacion ? 'pendiente_validacion' : 'aprobado',
-            'observaciones' => $validated['observaciones'],
+            'observaciones' => $validated['observaciones'] ?? null,
             'fecha_vencimiento' => $fechaVencimiento,
             'cargado_por' => $user->id,
         ]);
@@ -345,16 +396,25 @@ class DocumentoController extends Controller
 
         $periodoMes = $validated['periodo_mes'] ?? null;
 
-        if ($this->hasContratistaPeriodoDuplicate(
+        $version = $this->getNextVersion(
             contratistaId: $contratista->id,
-            tipoDocumento: $tipoDocumento,
+            tipoDocumentoId: $tipoDocumento->id,
             periodoAno: (int) $validated['periodo_ano'],
             periodoMes: $periodoMes !== null ? (int) $periodoMes : null,
-        )) {
-            throw ValidationException::withMessages([
-                'tipo_documento_id' => 'Este tipo de documento ya fue cargado para el período seleccionado.',
-            ]);
-        }
+        );
+
+        Documento::query()
+            ->where('contratista_id', $contratista->id)
+            ->where('tipo_documento_id', $tipoDocumento->id)
+            ->where('periodo_ano', (int) $validated['periodo_ano'])
+            ->where(function ($query) use ($periodoMes) {
+                $query->whereNull('periodo_mes');
+                if ($periodoMes !== null) {
+                    $query->orWhere('periodo_mes', (int) $periodoMes);
+                }
+            })
+            ->where('es_ultima_version', true)
+            ->update(['es_ultima_version' => false]);
 
         $path = $file->store(
             'documentos/'.$contratista->id.'/'.$tipoDocumento->codigo,
@@ -376,6 +436,8 @@ class DocumentoController extends Controller
             'tipo_documento_id' => $tipoDocumento->id,
             'periodo_ano' => (int) $validated['periodo_ano'],
             'periodo_mes' => $periodoMes !== null ? (int) $periodoMes : null,
+            'version' => $version,
+            'es_ultima_version' => true,
             'archivo_nombre_original' => $file->getClientOriginalName(),
             'archivo_ruta' => $path,
             'archivo_tamano_kb' => (int) round($fileSizeKb),
@@ -391,6 +453,7 @@ class DocumentoController extends Controller
                 'id' => $documento->id,
                 'contratista_id' => $documento->contratista_id,
                 'tipo_documento_id' => $documento->tipo_documento_id,
+                'version' => $documento->version,
                 'archivo_nombre_original' => $documento->archivo_nombre_original,
                 'periodo_ano' => $documento->periodo_ano,
                 'periodo_mes' => $documento->periodo_mes,
@@ -561,25 +624,22 @@ class DocumentoController extends Controller
         }
     }
 
-    private function hasContratistaPeriodoDuplicate(
+    private function getNextVersion(
         int $contratistaId,
-        TipoDocumento $tipoDocumento,
+        int $tipoDocumentoId,
         int $periodoAno,
         ?int $periodoMes,
-    ): bool {
-        if ($tipoDocumento->permite_multiples_en_mes) {
-            return false;
-        }
-
+    ): int {
         return Documento::query()
             ->where('contratista_id', $contratistaId)
-            ->where('tipo_documento_id', $tipoDocumento->id)
+            ->where('tipo_documento_id', $tipoDocumentoId)
             ->where('periodo_ano', $periodoAno)
             ->when(
                 $periodoMes === null,
                 fn ($query) => $query->whereNull('periodo_mes'),
                 fn ($query) => $query->where('periodo_mes', $periodoMes),
             )
-            ->exists();
+            ->withTrashed()
+            ->max('version') + 1;
     }
 }

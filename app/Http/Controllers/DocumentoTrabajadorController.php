@@ -165,14 +165,16 @@ class DocumentoTrabajadorController extends Controller
             ]);
         }
 
-        if ($this->hasTrabajadorDocumentoDuplicate(
+        $version = $this->getNextVersion(
             trabajadorId: $trabajador->id,
-            tipoDocumento: $tipoDocumento,
-        )) {
-            throw ValidationException::withMessages([
-                'tipo_documento_id' => 'Este tipo de documento ya fue cargado para el trabajador.',
-            ]);
-        }
+            tipoDocumentoId: $tipoDocumento->id,
+        );
+
+        DocumentoTrabajador::query()
+            ->where('trabajador_id', $trabajador->id)
+            ->where('tipo_documento_id', $tipoDocumento->id)
+            ->where('es_ultima_version', true)
+            ->update(['es_ultima_version' => false]);
 
         $extension = strtolower($file->getClientOriginalExtension());
         $formatosPermitidos = collect($tipoDocumento->formatos_permitidos ?? [])
@@ -203,6 +205,8 @@ class DocumentoTrabajadorController extends Controller
         return DocumentoTrabajador::query()->create([
             'trabajador_id' => $trabajador->id,
             'tipo_documento_id' => $tipoDocumento->id,
+            'version' => $version,
+            'es_ultima_version' => true,
             'origen' => 'carga_manual',
             'archivo_nombre_original' => $file->getClientOriginalName(),
             'archivo_ruta' => $path,
@@ -227,18 +231,14 @@ class DocumentoTrabajadorController extends Controller
         }
     }
 
-    private function hasTrabajadorDocumentoDuplicate(
+    private function getNextVersion(
         string $trabajadorId,
-        TipoDocumento $tipoDocumento,
-    ): bool {
-        if ($tipoDocumento->permite_multiples_en_mes) {
-            return false;
-        }
-
+        int $tipoDocumentoId,
+    ): int {
         return DocumentoTrabajador::query()
             ->where('trabajador_id', $trabajadorId)
-            ->where('tipo_documento_id', $tipoDocumento->id)
-            ->where('origen', 'carga_manual')
-            ->exists();
+            ->where('tipo_documento_id', $tipoDocumentoId)
+            ->withTrashed()
+            ->max('version') + 1;
     }
 }

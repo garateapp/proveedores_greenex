@@ -67,6 +67,8 @@ interface Documento {
     contratista_id: number;
     periodo_ano: number;
     periodo_mes: number | null;
+    version: number;
+    es_ultima_version: boolean;
     archivo_nombre_original?: string;
     estado: 'pendiente_validacion' | 'aprobado' | 'rechazado';
     fecha_vencimiento: string | null;
@@ -326,6 +328,7 @@ export default function DocumentosAprobaciones({
                             <TableHeader>
                                 <TableRow>
                                     <TableHead>Tipo</TableHead>
+                                    <TableHead>Versión</TableHead>
                                     <TableHead>Período</TableHead>
                                     <TableHead>Contratista</TableHead>
                                     <TableHead>Estado</TableHead>
@@ -336,7 +339,7 @@ export default function DocumentosAprobaciones({
                             <TableBody>
                                 {documentos.data.length === 0 ? (
                                     <TableRow>
-                                        <TableCell colSpan={6} className="text-center text-muted-foreground">
+                                        <TableCell colSpan={7} className="text-center text-muted-foreground">
                                             No hay documentos con los filtros seleccionados.
                                         </TableCell>
                                     </TableRow>
@@ -348,6 +351,11 @@ export default function DocumentosAprobaciones({
                                                     <FileText className="size-4 text-muted-foreground" />
                                                     {documento.tipo_documento.nombre}
                                                 </div>
+                                            </TableCell>
+                                            <TableCell>
+                                                <Badge variant={documento.es_ultima_version ? 'default' : 'outline'}>
+                                                    v{documento.version}
+                                                </Badge>
                                             </TableCell>
                                             <TableCell>
                                                 {documento.periodo_mes

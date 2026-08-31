@@ -16,6 +16,8 @@ class DocumentoTrabajador extends Model
     protected $fillable = [
         'trabajador_id',
         'tipo_documento_id',
+        'version',
+        'es_ultima_version',
         'origen',
         'plantilla_documento_trabajador_id',
         'archivo_nombre_original',
@@ -37,6 +39,8 @@ class DocumentoTrabajador extends Model
     {
         return [
             'origen' => 'string',
+            'version' => 'integer',
+            'es_ultima_version' => 'boolean',
             'contenido_html_snapshot' => 'string',
             'variables_snapshot' => 'array',
             'archivo_tamano_kb' => 'integer',
@@ -86,5 +90,13 @@ class DocumentoTrabajador extends Model
     public function firmadoPor(): BelongsTo
     {
         return $this->belongsTo(User::class, 'firmado_por');
+    }
+
+    /**
+     * Scope to only include the latest version of each document.
+     */
+    public function scopeLatestVersion($query)
+    {
+        return $query->where('es_ultima_version', true);
     }
 }

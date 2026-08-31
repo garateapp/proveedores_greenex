@@ -12,6 +12,11 @@ import {
     CardTitle,
 } from '@/components/ui/card';
 import {
+    Collapsible,
+    CollapsibleContent,
+    CollapsibleTrigger,
+} from '@/components/ui/collapsible';
+import {
     Dialog,
     DialogContent,
     DialogDescription,
@@ -25,6 +30,10 @@ import {
     SelectTrigger,
     SelectValue,
 } from '@/components/ui/select';
+import { Label } from '@/components/ui/label';
+import {
+    Switch,
+} from '@/components/ui/switch';
 import {
     Table,
     TableBody,
@@ -52,15 +61,17 @@ import {
 import {
     AlertCircle,
     CheckCircle,
+    ChevronDown,
     Clock,
     Download,
     Eye,
     FileText,
+    History,
     Info,
     Upload,
     XCircle,
 } from 'lucide-react';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 
 const breadcrumbs: BreadcrumbItem[] = [
     {
@@ -91,8 +102,8 @@ interface Documento {
     contratista_id: number;
     periodo_ano: number;
     periodo_mes: number | null;
-    nombre_archivo?: string;
-    ruta_archivo?: string;
+    version: number;
+    es_ultima_version: boolean;
     archivo_nombre_original?: string;
     archivo_ruta?: string;
     estado: 'pendiente_validacion' | 'aprobado' | 'rechazado' | 'vencido';
@@ -118,6 +129,7 @@ interface Filters {
     estado?: string;
     ano?: string;
     contratista_id?: string;
+    incluir_todas_versiones?: string;
 }
 
 interface Props {
@@ -127,7 +139,9 @@ interface Props {
     filters: Filters;
 }
 
-const estadoBadgeConfig = (estado: Documento['estado']) => {
+type Estado = Documento['estado'];
+
+const estadoBadgeConfig = (estado: Estado) => {
     switch (estado) {
         case 'aprobado':
             return {
@@ -177,6 +191,23 @@ const meses = [
     'Diciembre',
 ];
 
+interface DocumentoGroup {
+    key: string;
+    contratista: Contratista;
+    tipoDocumento: TipoDocumento;
+    periodoAno: number;
+    periodoMes: number | null;
+    documentos: Documento[];
+}
+
+const formatPeriodo = (ano: number, mes: number | null): string => {
+    if (mes) {
+        return `${meses[mes - 1]} ${ano}`;
+    }
+
+    return String(ano);
+};
+
 export default function DocumentosIndex({
     documentos,
     tiposDocumentos,
@@ -188,13 +219,53 @@ export default function DocumentosIndex({
     const [previewDocumento, setPreviewDocumento] = useState<Documento | null>(
         null,
     );
+    const mostrarTodasVersiones = filters.incluir_todas_versiones === '1';
+
+    const grupos = useMemo<DocumentoGroup[]>(() => {
+        const groups = new Map<string, DocumentoGroup>();
+
+        for (const documento of documentos.data) {
+            const key = [
+                documento.contratista_id,
+                documento.tipo_documento_id,
+                documento.periodo_ano,
+                documento.periodo_mes ?? 'null',
+            ].join('|');
+
+            const existing = groups.get(key);
+            if (existing) {
+                existing.documentos.push(documento);
+            } else {
+                groups.set(key, {
+                    key,
+                    contratista: documento.contratista,
+                    tipoDocumento: documento.tipo_documento,
+                    periodoAno: documento.periodo_ano,
+                    periodoMes: documento.periodo_mes,
+                    documentos: [documento],
+                });
+            }
+        }
+
+        return Array.from(groups.values());
+    }, [documentos.data]);
 
     const handleFilterChange = (key: string, value: string) => {
         const payload = { ...filters, [key]: value };
         router.get('/documentos', payload, { preserveState: true });
     };
 
-    const buildPageHref = (page: number): string => {
+    const handleVersionesToggle = (checked: boolean) => {
+        const payload = { ...filters };
+        if (checked) {
+            payload.incluir_todas_versiones = '1';
+        } else {
+            delete payload.incluir_todas_versiones;
+        }
+        router.get('/documentos', payload, { preserveState: true });
+    };
+
+    const buildPageHref = (pageNumber: number): string => {
         const params = new URLSearchParams();
 
         if (filters.tipo_documento_id) {
@@ -213,9 +284,27 @@ export default function DocumentosIndex({
             params.set('contratista_id', filters.contratista_id);
         }
 
-        params.set('page', page.toString());
+        if (filters.incluir_todas_versiones) {
+            params.set('incluir_todas_versiones', filters.incluir_todas_versiones);
+        }
+
+        params.set('page', pageNumber.toString());
 
         return `/documentos?${params.toString()}`;
+    };
+
+    const buildReuploadHref = (documento: Documento): string => {
+        const params = new URLSearchParams();
+        params.set('tipo_documento_id', documento.tipo_documento_id.toString());
+        params.set('periodo_ano', documento.periodo_ano.toString());
+        if (documento.periodo_mes !== null) {
+            params.set('periodo_mes', documento.periodo_mes.toString());
+        }
+        if (isAdmin) {
+            params.set('contratista_id', documento.contratista_id.toString());
+        }
+
+        return `/documentos/create?${params.toString()}`;
     };
 
     return (
@@ -403,193 +492,340 @@ export default function DocumentosIndex({
                                 </Select>
                             </div>
                         </div>
+
+                        <div className="flex items-center justify-between border-t pt-4">
+                            <div className="flex items-center gap-2">
+                                <Switch
+                                    id="todas-versiones"
+                                    checked={mostrarTodasVersiones}
+                                    onCheckedChange={handleVersionesToggle}
+                                />
+                                <Label htmlFor="todas-versiones">
+                                    Mostrar todas las versiones
+                                </Label>
+                            </div>
+                            <p className="text-sm text-muted-foreground">
+                                {documentos.total} documento
+                                {documentos.total !== 1 ? 's' : ''} en esta
+                                vista
+                            </p>
+                        </div>
                     </CardContent>
                 </Card>
 
-                {/* Table */}
-                <Card>
-                    <CardHeader>
-                        <CardTitle>
-                            Documentos ({documentos.total} documento
-                            {documentos.total !== 1 ? 's' : ''})
-                        </CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                        <Table>
-                            <TableHeader>
-                                <TableRow>
-                                    <TableHead>Tipo</TableHead>
-                                    <TableHead>Período</TableHead>
-                                    <TableHead>Contratista</TableHead>
-                                    <TableHead>Estado</TableHead>
-                                    <TableHead>Fecha Carga</TableHead>
-                                    <TableHead>Vencimiento</TableHead>
-                                    <TableHead className="text-right">
-                                        Acciones
-                                    </TableHead>
-                                </TableRow>
-                            </TableHeader>
-                            <TableBody>
-                                {documentos.data.length === 0 ? (
-                                    <TableRow>
-                                        <TableCell
-                                            colSpan={7}
-                                            className="text-center text-muted-foreground"
-                                        >
-                                            No se encontraron documentos
-                                        </TableCell>
-                                    </TableRow>
-                                ) : (
-                                    documentos.data.map((documento) => {
-                                        const estadoConfig = estadoBadgeConfig(
-                                            documento.estado,
-                                        );
-                                        const EstadoIcon = estadoConfig.icon;
+                {/* Documentos agrupados */}
+                {grupos.length === 0 ? (
+                    <Card>
+                        <CardContent className="py-12 text-center text-muted-foreground">
+                            No se encontraron documentos
+                        </CardContent>
+                    </Card>
+                ) : (
+                    <div className="space-y-4">
+                        {grupos.map((grupo) => {
+                            const latest = grupo.documentos[0];
+                            const estadoConfig = estadoBadgeConfig(
+                                latest.estado,
+                            );
+                            const EstadoIcon = estadoConfig.icon;
+                            const mostrandoUnaVersion =
+                                grupo.documentos.length === 1;
 
-                                        return (
-                                            <TableRow key={documento.id}>
-                                                <TableCell className="font-medium">
-                                                    <div className="flex items-center gap-2">
-                                                        <FileText className="size-4 text-muted-foreground" />
+                            return (
+                                <Card key={grupo.key} className="overflow-hidden">
+                                    <Collapsible
+                                        defaultOpen={mostrarTodasVersiones}
+                                    >
+                                        <CollapsibleTrigger className="flex w-full items-center justify-between gap-4 border-b bg-muted/30 px-4 py-3 text-left transition hover:bg-muted/50">
+                                            <div className="flex items-center gap-3">
+                                                <div className="flex size-9 items-center justify-center rounded-md border bg-background">
+                                                    <FileText className="size-4 text-muted-foreground" />
+                                                </div>
+                                                <div>
+                                                    <p className="font-medium leading-tight">
                                                         {
-                                                            documento
-                                                                .tipo_documento
+                                                            grupo.tipoDocumento
                                                                 .nombre
                                                         }
-                                                    </div>
-                                                </TableCell>
-                                                <TableCell>
-                                                    {documento.periodo_mes
-                                                        ? `${meses[documento.periodo_mes - 1]} ${documento.periodo_ano}`
-                                                        : documento.periodo_ano}
-                                                </TableCell>
-                                                <TableCell className="text-sm">
-                                                    {documento.contratista
-                                                        .nombre_fantasia ||
-                                                        documento.contratista
-                                                            .razon_social}
-                                                </TableCell>
-                                                <TableCell>
-                                                    <div className="flex items-center gap-1">
-                                                        <Badge
-                                                            variant={
-                                                                estadoConfig.variant
-                                                            }
-                                                        >
-                                                            <EstadoIcon className="mr-1 size-3" />
-                                                            {estadoConfig.label}
-                                                        </Badge>
-                                                        {documento.estado === 'rechazado' && documento.motivo_rechazo && (
-                                                            <Tooltip>
-                                                                <TooltipTrigger asChild>
-                                                                    <button type="button" className="cursor-help">
-                                                                        <Info className="size-3.5 text-destructive" />
-                                                                    </button>
-                                                                </TooltipTrigger>
-                                                                <TooltipContent side="right" className="max-w-xs text-xs">
-                                                                    <p className="font-medium mb-0.5">Motivo del rechazo:</p>
-                                                                    <p>{documento.motivo_rechazo}</p>
-                                                                </TooltipContent>
-                                                            </Tooltip>
+                                                    </p>
+                                                    <p className="text-xs text-muted-foreground">
+                                                        {formatPeriodo(
+                                                            grupo.periodoAno,
+                                                            grupo.periodoMes,
                                                         )}
-                                                    </div>
-                                                </TableCell>
-                                                <TableCell className="text-sm">
-                                                    {new Date(
-                                                        documento.created_at,
-                                                    ).toLocaleDateString(
-                                                        'es-CL',
-                                                    )}
-                                                </TableCell>
-                                                <TableCell className="text-sm">
-                                                    {documento.fecha_vencimiento
-                                                        ? new Date(
-                                                              documento.fecha_vencimiento,
-                                                          ).toLocaleDateString(
-                                                              'es-CL',
-                                                          )
-                                                        : '-'}
-                                                </TableCell>
-                                                <TableCell className="text-right">
-                                                    <div className="flex justify-end gap-1">
-                                                        <Button
-                                                            variant="ghost"
-                                                            size="sm"
-                                                            type="button"
-                                                            onClick={() =>
-                                                                setPreviewDocumento(
-                                                                    documento,
-                                                                )
-                                                            }
-                                                        >
-                                                            <Eye className="size-4" />
-                                                        </Button>
-                                                        <Button
-                                                            variant="ghost"
-                                                            size="sm"
-                                                            asChild
-                                                        >
-                                                            <Link
-                                                                href={`/documentos/${documento.id}/download`}
-                                                            >
-                                                                <Download className="size-4" />
-                                                            </Link>
-                                                        </Button>
-                                                    </div>
-                                                </TableCell>
-                                            </TableRow>
-                                        );
-                                    })
-                                )}
-                            </TableBody>
-                        </Table>
+                                                        {isAdmin && (
+                                                            <>
+                                                                {' · '}
+                                                                {grupo.contratista
+                                                                    .nombre_fantasia ||
+                                                                    grupo
+                                                                        .contratista
+                                                                        .razon_social}
+                                                            </>
+                                                        )}
+                                                    </p>
+                                                </div>
+                                            </div>
+                                            <div className="flex items-center gap-2">
+                                                <Badge
+                                                    variant={
+                                                        estadoConfig.variant
+                                                    }
+                                                >
+                                                    <EstadoIcon className="mr-1 size-3" />
+                                                    {estadoConfig.label}
+                                                </Badge>
+                                                {grupo.documentos.length > 1 && (
+                                                    <Badge variant="outline">
+                                                        <History className="mr-1 size-3" />
+                                                        {
+                                                            grupo.documentos
+                                                                .length
+                                                        }{' '}
+                                                        version
+                                                        {grupo.documentos.length !==
+                                                        1
+                                                            ? 'es'
+                                                            : ''}
+                                                    </Badge>
+                                                )}
+                                                <ChevronDown className="size-4 text-muted-foreground transition-transform data-[state=open]:rotate-180" />
+                                            </div>
+                                        </CollapsibleTrigger>
 
-                        {/* Pagination */}
-                        {documentos.last_page > 1 && (
-                            <div className="mt-4 flex items-center justify-between">
-                                <p className="text-sm text-muted-foreground">
-                                    Página {documentos.current_page} de{' '}
-                                    {documentos.last_page}
-                                </p>
-                                <div className="flex gap-2">
-                                    <Button
-                                        variant="outline"
-                                        size="sm"
-                                        disabled={documentos.current_page === 1}
-                                        asChild
-                                    >
-                                        <Link
-                                            href={buildPageHref(
-                                                documentos.current_page - 1,
-                                            )}
-                                            preserveState
-                                        >
-                                            Anterior
-                                        </Link>
-                                    </Button>
-                                    <Button
-                                        variant="outline"
-                                        size="sm"
-                                        disabled={
-                                            documentos.current_page ===
-                                            documentos.last_page
-                                        }
-                                        asChild
-                                    >
-                                        <Link
-                                            href={buildPageHref(
-                                                documentos.current_page + 1,
-                                            )}
-                                            preserveState
-                                        >
-                                            Siguiente
-                                        </Link>
-                                    </Button>
-                                </div>
-                            </div>
-                        )}
-                    </CardContent>
-                </Card>
+                                        <CollapsibleContent>
+                                            <Table>
+                                                <TableHeader>
+                                                    <TableRow className="hover:bg-transparent">
+                                                        <TableHead>
+                                                            Versión
+                                                        </TableHead>
+                                                        <TableHead>
+                                                            Archivo
+                                                        </TableHead>
+                                                        <TableHead>
+                                                            Estado
+                                                        </TableHead>
+                                                        <TableHead>
+                                                            Fecha Carga
+                                                        </TableHead>
+                                                        <TableHead>
+                                                            Vencimiento
+                                                        </TableHead>
+                                                        <TableHead className="text-right">
+                                                            Acciones
+                                                        </TableHead>
+                                                    </TableRow>
+                                                </TableHeader>
+                                                <TableBody>
+                                                    {grupo.documentos.map(
+                                                        (documento) => {
+                                                            const config =
+                                                                estadoBadgeConfig(
+                                                                    documento.estado,
+                                                                );
+                                                            const Icon =
+                                                                config.icon;
+
+                                                            return (
+                                                                <TableRow
+                                                                    key={
+                                                                        documento.id
+                                                                    }
+                                                                    className={
+                                                                        documento.es_ultima_version
+                                                                            ? ''
+                                                                            : 'opacity-70'
+                                                                    }
+                                                                >
+                                                                    <TableCell>
+                                                                        <div className="flex items-center gap-2">
+                                                                            <Badge
+                                                                                variant={
+                                                                                    documento.es_ultima_version
+                                                                                        ? 'default'
+                                                                                        : 'outline'
+                                                                                }
+                                                                            >
+                                                                                v
+                                                                                {
+                                                                                    documento.version
+                                                                                }
+                                                                            </Badge>
+                                                                            {documento.es_ultima_version && (
+                                                                                <span className="text-xs text-muted-foreground">
+                                                                                    actual
+                                                                                </span>
+                                                                            )}
+                                                                        </div>
+                                                                    </TableCell>
+                                                                    <TableCell>
+                                                                        <p className="max-w-[220px] truncate font-medium">
+                                                                            {documento.archivo_nombre_original ||
+                                                                                `Documento ${documento.id}`}
+                                                                        </p>
+                                                                    </TableCell>
+                                                                    <TableCell>
+                                                                        <div className="flex items-center gap-1">
+                                                                            <Badge
+                                                                                variant={
+                                                                                    config.variant
+                                                                                }
+                                                                            >
+                                                                                <Icon className="mr-1 size-3" />
+                                                                                {
+                                                                                    config.label
+                                                                                }
+                                                                            </Badge>
+                                                                            {documento.estado ===
+                                                                                'rechazado' &&
+                                                                                documento.motivo_rechazo && (
+                                                                                    <Tooltip>
+                                                                                        <TooltipTrigger asChild>
+                                                                                            <button
+                                                                                                type="button"
+                                                                                                className="cursor-help"
+                                                                                            >
+                                                                                                <Info className="size-3.5 text-destructive" />
+                                                                                            </button>
+                                                                                        </TooltipTrigger>
+                                                                                        <TooltipContent
+                                                                                            side="right"
+                                                                                            className="max-w-xs text-xs"
+                                                                                        >
+                                                                                            <p className="mb-0.5 font-medium">
+                                                                                                Motivo
+                                                                                                del
+                                                                                                rechazo:
+                                                                                            </p>
+                                                                                            <p>
+                                                                                                {
+                                                                                                    documento.motivo_rechazo
+                                                                                                }
+                                                                                            </p>
+                                                                                        </TooltipContent>
+                                                                                    </Tooltip>
+                                                                                )}
+                                                                        </div>
+                                                                    </TableCell>
+                                                                    <TableCell className="text-sm">
+                                                                        {new Date(
+                                                                            documento.created_at,
+                                                                        ).toLocaleDateString(
+                                                                            'es-CL',
+                                                                        )}
+                                                                    </TableCell>
+                                                                    <TableCell className="text-sm">
+                                                                        {documento.fecha_vencimiento
+                                                                            ? new Date(
+                                                                                  documento.fecha_vencimiento,
+                                                                              ).toLocaleDateString(
+                                                                                  'es-CL',
+                                                                              )
+                                                                            : '-'}
+                                                                    </TableCell>
+                                                                    <TableCell className="text-right">
+                                                                        <div className="flex justify-end gap-1">
+                                                                            <Button
+                                                                                variant="ghost"
+                                                                                size="sm"
+                                                                                type="button"
+                                                                                onClick={() =>
+                                                                                    setPreviewDocumento(
+                                                                                        documento,
+                                                                                    )
+                                                                                }
+                                                                            >
+                                                                                <Eye className="size-4" />
+                                                                            </Button>
+                                                                            <Button
+                                                                                variant="ghost"
+                                                                                size="sm"
+                                                                                asChild
+                                                                            >
+                                                                                <Link
+                                                                                    href={`/documentos/${documento.id}/download`}
+                                                                                >
+                                                                                    <Download className="size-4" />
+                                                                                </Link>
+                                                                            </Button>
+                                                                            {documento.estado ===
+                                                                                'rechazado' && (
+                                                                                <Button
+                                                                                    variant="outline"
+                                                                                    size="sm"
+                                                                                    asChild
+                                                                                >
+                                                                                    <Link
+                                                                                        href={buildReuploadHref(
+                                                                                            documento,
+                                                                                        )}
+                                                                                    >
+                                                                                        <Upload className="mr-1 size-3.5" />
+                                                                                        Re-subir
+                                                                                    </Link>
+                                                                                </Button>
+                                                                            )}
+                                                                        </div>
+                                                                    </TableCell>
+                                                                </TableRow>
+                                                            );
+                                                        },
+                                                    )}
+                                                </TableBody>
+                                            </Table>
+                                        </CollapsibleContent>
+                                    </Collapsible>
+                                </Card>
+                            );
+                        })}
+                    </div>
+                )}
+
+                {/* Pagination */}
+                {documentos.last_page > 1 && (
+                    <div className="mt-4 flex items-center justify-between">
+                        <p className="text-sm text-muted-foreground">
+                            Página {documentos.current_page} de{' '}
+                            {documentos.last_page}
+                        </p>
+                        <div className="flex gap-2">
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                disabled={documentos.current_page === 1}
+                                asChild
+                            >
+                                <Link
+                                    href={buildPageHref(
+                                        documentos.current_page - 1,
+                                    )}
+                                    preserveState
+                                >
+                                    Anterior
+                                </Link>
+                            </Button>
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                disabled={
+                                    documentos.current_page ===
+                                    documentos.last_page
+                                }
+                                asChild
+                            >
+                                <Link
+                                    href={buildPageHref(
+                                        documentos.current_page + 1,
+                                    )}
+                                    preserveState
+                                >
+                                    Siguiente
+                                </Link>
+                            </Button>
+                        </div>
+                    </div>
+                )}
             </div>
 
             <Dialog
@@ -604,9 +840,10 @@ export default function DocumentosIndex({
                     <DialogHeader>
                         <DialogTitle>Visor de documento</DialogTitle>
                         <DialogDescription>
-                            {previewDocumento?.archivo_nombre_original ||
-                                previewDocumento?.nombre_archivo ||
-                                'Documento'}
+                            {previewDocumento?.tipo_documento?.nombre}
+                            {previewDocumento
+                                ? ` · v${previewDocumento.version}`
+                                : ''}
                         </DialogDescription>
                     </DialogHeader>
 

@@ -13,7 +13,7 @@ import {
 } from '@/components/ui/select';
 import AppLayout from '@/layouts/app-layout';
 import { type BreadcrumbItem } from '@/types';
-import { ArrowLeft, Upload } from 'lucide-react';
+import { ArrowLeft, Info, Upload } from 'lucide-react';
 
 interface TipoDocumento {
     id: number;
@@ -30,6 +30,10 @@ interface ContratistaOption {
 interface Props {
     tiposDocumentos: TipoDocumento[];
     contratistas: ContratistaOption[];
+    documentoExistente: {
+        version: number;
+        estado: string;
+    } | null;
 }
 
 const breadcrumbs: BreadcrumbItem[] = [
@@ -37,19 +41,38 @@ const breadcrumbs: BreadcrumbItem[] = [
     { title: 'Cargar', href: '/documentos/create' },
 ];
 
-export default function DocumentoCreate({ tiposDocumentos, contratistas }: Props) {
-    const defaultTipo = tiposDocumentos[0]?.id?.toString() ?? '';
+export default function DocumentoCreate({
+    tiposDocumentos,
+    contratistas,
+    documentoExistente,
+}: Props) {
+    const queryParams = new URLSearchParams(window.location.search);
+    const queryTipo = queryParams.get('tipo_documento_id');
+    const queryAno = queryParams.get('periodo_ano');
+    const queryMes = queryParams.get('periodo_mes');
+    const queryContratista = queryParams.get('contratista_id');
+
+    const selectedTipo = tiposDocumentos.some(
+        (t) => t.id.toString() === queryTipo,
+    )
+        ? (queryTipo as string)
+        : (tiposDocumentos[0]?.id?.toString() ?? '');
+    const selectedContratista = contratsitasDisponibles(
+        contratistas,
+        queryContratista,
+    );
+
     const { data, setData, post, processing, errors, progress, recentlySuccessful } = useForm({
-        tipo_documento_id: defaultTipo,
-        periodo_ano: new Date().getFullYear().toString(),
-        periodo_mes: '',
+        tipo_documento_id: selectedTipo,
+        periodo_ano: queryAno ?? new Date().getFullYear().toString(),
+        periodo_mes: queryMes ?? '',
         archivo: null as File | null,
         observaciones: '',
-        contratista_id: contratistas[0]?.value?.toString() ?? '',
+        contratista_id: selectedContratista,
     });
 
     const [allowedExt, setAllowedExt] = useState<string[]>(
-        tiposDocumentos.find((t) => t.id.toString() === defaultTipo)?.formatos_permitidos ?? [],
+        tiposDocumentos.find((t) => t.id.toString() === selectedTipo)?.formatos_permitidos ?? [],
     );
     const fileInputRef = useRef<HTMLInputElement | null>(null);
     const [isDragging, setIsDragging] = useState(false);
@@ -98,6 +121,8 @@ export default function DocumentoCreate({ tiposDocumentos, contratistas }: Props
         setIsDragging(false);
     };
 
+    const esReupload = queryParams.has('tipo_documento_id') && queryParams.has('periodo_ano');
+
     return (
         <>
             <Head title="Cargar Documento" />
@@ -117,6 +142,34 @@ export default function DocumentoCreate({ tiposDocumentos, contratistas }: Props
                         </p>
                     </div>
                 </div>
+
+                {esReupload && (
+                    <div className="flex items-start gap-2 rounded-md border border-amber-300 bg-amber-50 p-3 text-sm text-amber-800 dark:border-amber-700 dark:bg-amber-950 dark:text-amber-200">
+                        <Info className="mt-0.5 size-4 shrink-0" />
+                        <div>
+                            <p className="font-medium">Subiendo una nueva versión del documento</p>
+                            <p className="text-xs">
+                                Se creará una nueva versión para el tipo y período seleccionados. Los
+                                cargadores podrán revisarla en la cola de aprobaciones.
+                            </p>
+                        </div>
+                    </div>
+                )}
+
+                {documentoExistente && (
+                    <div className="flex items-start gap-2 rounded-md border border-blue-300 bg-blue-50 p-3 text-sm text-blue-800 dark:border-blue-700 dark:bg-blue-950 dark:text-blue-200">
+                        <Info className="mt-0.5 size-4 shrink-0" />
+                        <div>
+                            <p className="font-medium">
+                                Ya existe una versión de este documento (v{documentoExistente.version})
+                            </p>
+                            <p className="text-xs">
+                                Al cargar este archivo se generará una nueva versión sin afectar las
+                                anteriores.
+                            </p>
+                        </div>
+                    </div>
+                )}
 
                 <Card>
                     <CardHeader>
@@ -281,7 +334,7 @@ export default function DocumentoCreate({ tiposDocumentos, contratistas }: Props
                             <div className="flex gap-4">
                                 <Button type="submit" disabled={processing}>
                                     <Upload className="mr-2 h-4 w-4" />
-                                    Cargar
+                                    {esReupload ? 'Re-subir documento' : 'Cargar'}
                                 </Button>
                                 <Link href="/documentos">
                                     <Button type="button" variant="outline">
@@ -295,6 +348,17 @@ export default function DocumentoCreate({ tiposDocumentos, contratistas }: Props
             </div>
         </>
     );
+}
+
+function contratsitasDisponibles(
+    contratistas: ContratistaOption[],
+    queryContratista: string | null,
+): string {
+    if (queryContratista && contratistas.some((c) => c.value.toString() === queryContratista)) {
+        return queryContratista;
+    }
+
+    return contratistas[0]?.value?.toString() ?? '';
 }
 
 DocumentoCreate.layout = (page: React.ReactNode) => (

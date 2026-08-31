@@ -17,6 +17,8 @@ class Documento extends Model
         'tipo_documento_id',
         'periodo_ano',
         'periodo_mes',
+        'version',
+        'es_ultima_version',
         'archivo_nombre_original',
         'archivo_ruta',
         'archivo_tamano_kb',
@@ -34,6 +36,8 @@ class Documento extends Model
         return [
             'periodo_ano' => 'integer',
             'periodo_mes' => 'integer',
+            'version' => 'integer',
+            'es_ultima_version' => 'boolean',
             'archivo_tamano_kb' => 'integer',
             'fecha_vencimiento' => 'date',
             'validado_at' => 'datetime',
@@ -160,5 +164,13 @@ class Documento extends Model
         return $query->whereNotNull('fecha_vencimiento')
             ->whereDate('fecha_vencimiento', '>=', now())
             ->whereDate('fecha_vencimiento', '<=', now()->addDays($days));
+    }
+
+    /**
+     * Scope to only include the latest version of each document.
+     */
+    public function scopeLatestVersion($query)
+    {
+        return $query->where('es_ultima_version', true);
     }
 }
