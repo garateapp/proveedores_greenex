@@ -10,6 +10,7 @@ use App\Models\Trabajador;
 use App\Models\User;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\ValidationException;
@@ -109,6 +110,48 @@ class DocumentoTrabajadorController extends Controller
             'Content-Disposition' => 'inline; filename="'.$fileName.'"',
             'X-Content-Type-Options' => 'nosniff',
         ]);
+    }
+
+    /**
+     * Approve a documento for trabajador (admin only).
+     */
+    public function approve(Request $request, DocumentoTrabajador $documentoTrabajador): RedirectResponse
+    {
+        if (! $request->user()->isAdmin()) {
+            abort(403);
+        }
+
+        $documentoTrabajador->update([
+            'estado' => 'aprobado',
+            'validado_por' => (int) $request->user()->id,
+            'validado_at' => now(),
+            'motivo_rechazo' => null,
+        ]);
+
+        return back()->with('success', 'Documento del trabajador aprobado exitosamente.');
+    }
+
+    /**
+     * Reject a documento for trabajador (admin only).
+     */
+    public function reject(Request $request, DocumentoTrabajador $documentoTrabajador): RedirectResponse
+    {
+        if (! $request->user()->isAdmin()) {
+            abort(403);
+        }
+
+        $validated = $request->validate([
+            'motivo_rechazo' => ['required', 'string'],
+        ]);
+
+        $documentoTrabajador->update([
+            'estado' => 'rechazado',
+            'validado_por' => (int) $request->user()->id,
+            'validado_at' => now(),
+            'motivo_rechazo' => $validated['motivo_rechazo'],
+        ]);
+
+        return back()->with('success', 'Documento del trabajador rechazado.');
     }
 
     private function authorizeTrabajadorAccess(User $user, Trabajador $trabajador): void
@@ -211,6 +254,7 @@ class DocumentoTrabajadorController extends Controller
             'archivo_nombre_original' => $file->getClientOriginalName(),
             'archivo_ruta' => $path,
             'archivo_tamano_kb' => (int) round($fileSizeKb),
+            'estado' => $tipoDocumento->requiere_validacion ? 'pendiente_validacion' : 'aprobado',
             'fecha_vencimiento' => $expiryDate,
             'cargado_por' => $cargadoPor,
         ]);

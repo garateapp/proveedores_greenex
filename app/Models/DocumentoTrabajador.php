@@ -26,6 +26,10 @@ class DocumentoTrabajador extends Model
         'variables_snapshot',
         'firma_imagen_ruta',
         'archivo_tamano_kb',
+        'estado',
+        'motivo_rechazo',
+        'validado_por',
+        'validado_at',
         'fecha_vencimiento',
         'cargado_por',
         'firmado_por',
@@ -45,6 +49,8 @@ class DocumentoTrabajador extends Model
             'variables_snapshot' => 'array',
             'archivo_tamano_kb' => 'integer',
             'fecha_vencimiento' => 'date',
+            'estado' => 'string',
+            'validado_at' => 'datetime',
             'firmado_at' => 'datetime',
             'created_at' => 'datetime',
             'updated_at' => 'datetime',
@@ -98,5 +104,13 @@ class DocumentoTrabajador extends Model
     public function scopeLatestVersion($query)
     {
         return $query->where('es_ultima_version', true);
+    }
+
+    /**
+     * Scope to filter by estado.
+     */
+    public function scopeByEstado($query, string $estado)
+    {
+        return $query->where('estado', $estado);
     }
 }

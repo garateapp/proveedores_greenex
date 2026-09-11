@@ -1,6 +1,12 @@
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import {
+    Card,
+    CardContent,
+    CardDescription,
+    CardHeader,
+    CardTitle,
+} from '@/components/ui/card';
 import {
     Dialog,
     DialogContent,
@@ -8,7 +14,13 @@ import {
     DialogHeader,
     DialogTitle,
 } from '@/components/ui/dialog';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from '@/components/ui/select';
 import {
     Table,
     TableBody,
@@ -18,7 +30,11 @@ import {
     TableRow,
 } from '@/components/ui/table';
 import { Textarea } from '@/components/ui/textarea';
-import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
+import {
+    Tooltip,
+    TooltipContent,
+    TooltipTrigger,
+} from '@/components/ui/tooltip';
 import AppLayout from '@/layouts/app-layout';
 import { type BreadcrumbItem } from '@/types';
 import { Head, Link, router, usePage } from '@inertiajs/react';
@@ -28,6 +44,7 @@ import {
     Download,
     Eye,
     FileText,
+    IdCard,
     Info,
     ShieldAlert,
     XCircle,
@@ -78,12 +95,35 @@ interface Documento {
     created_at: string;
 }
 
-interface Pagination {
+interface Trabajador {
+    id: string;
+    documento: string;
+    nombre: string;
+    apellido: string;
+    contratista: Contratista | null;
+}
+
+interface DocumentoTrabajador {
+    id: number;
+    tipo_documento_id: number;
+    trabajador_id: string;
+    version: number;
+    es_ultima_version: boolean;
+    archivo_nombre_original?: string;
+    estado: 'pendiente_validacion' | 'aprobado' | 'rechazado';
+    fecha_vencimiento: string | null;
+    motivo_rechazo: string | null;
+    tipo_documento: TipoDocumento;
+    trabajador: Trabajador;
+    created_at: string;
+}
+
+interface Pagination<T> {
     current_page: number;
     last_page: number;
     per_page: number;
     total: number;
-    data: Documento[];
+    data: T[];
 }
 
 interface Filters {
@@ -94,10 +134,24 @@ interface Filters {
 }
 
 interface Props {
-    documentos: Pagination;
+    documentos: Pagination<Documento>;
+    documentosTrabajadores: Pagination<DocumentoTrabajador>;
     tiposDocumentos: TipoDocumento[];
     contratistas: { value: string; label: string }[];
     filters: Filters;
+}
+
+interface PreviewTarget {
+    titulo: string;
+    archivoNombre: string;
+    previewUrl: string;
+    downloadUrl: string;
+}
+
+interface RejectTarget {
+    id: number;
+    kind: 'documento' | 'trabajador';
+    nombre: string;
 }
 
 const meses = [
@@ -117,19 +171,24 @@ const meses = [
 
 export default function DocumentosAprobaciones({
     documentos,
+    documentosTrabajadores,
     tiposDocumentos,
     contratistas,
     filters,
 }: Props) {
     const page = usePage<{ auth: { user: { isAdmin: boolean } } }>();
     const isAdmin = page.props.auth?.user?.isAdmin ?? false;
-    const [previewDocumento, setPreviewDocumento] = useState<Documento | null>(null);
-    const [rejectDocumento, setRejectDocumento] = useState<Documento | null>(null);
+    const [preview, setPreview] = useState<PreviewTarget | null>(null);
+    const [rejectTarget, setRejectTarget] = useState<RejectTarget | null>(null);
     const [motivoRechazo, setMotivoRechazo] = useState('');
     const [rejectError, setRejectError] = useState('');
 
     const handleFilterChange = (key: string, value: string): void => {
-        router.get('/documentos/aprobaciones', { ...filters, [key]: value }, { preserveState: true });
+        router.get(
+            '/documentos/aprobaciones',
+            { ...filters, [key]: value },
+            { preserveState: true },
+        );
     };
 
     const buildPageHref = (page: number): string => {
@@ -156,46 +215,129 @@ export default function DocumentosAprobaciones({
         return `/documentos/aprobaciones?${params.toString()}`;
     };
 
-    const approveDocumento = (documento: Documento): void => {
-        router.post(`/documentos/${documento.id}/approve`, {}, { preserveScroll: true });
+    const approveDocumento = (
+        id: number,
+        kind: 'documento' | 'trabajador',
+    ): void => {
+        const url =
+            kind === 'trabajador'
+                ? `/documentos-trabajadores/${id}/approve`
+                : `/documentos/${id}/approve`;
+        router.post(url, {}, { preserveScroll: true });
     };
 
-    const openRejectDialog = (documento: Documento): void => {
-        setRejectDocumento(documento);
+    const openPreview = (
+        documento: Documento | DocumentoTrabajador,
+        kind: 'documento' | 'trabajador',
+    ): void => {
+        const urlPrefix =
+            kind === 'trabajador' ? '/documentos-trabajadores' : '/documentos';
+
+        setPreview({
+            titulo: documento.tipo_documento.nombre,
+            archivoNombre: documento.archivo_nombre_original ?? 'Documento',
+            previewUrl: `${urlPrefix}/${documento.id}/preview`,
+            downloadUrl: `${urlPrefix}/${documento.id}/download`,
+        });
+    };
+
+    const openRejectDialog = (
+        documento: Documento | DocumentoTrabajador,
+        kind: 'documento' | 'trabajador',
+    ): void => {
+        setRejectTarget({
+            id: documento.id,
+            kind,
+            nombre: documento.tipo_documento.nombre,
+        });
         setMotivoRechazo('');
         setRejectError('');
     };
 
     const submitReject = (): void => {
-        if (!rejectDocumento) {
+        if (!rejectTarget) {
             return;
         }
 
         const motivo = motivoRechazo.trim();
         if (motivo.length < 5) {
-            setRejectError('Ingresa un motivo de rechazo válido (mínimo 5 caracteres).');
+            setRejectError(
+                'Ingresa un motivo de rechazo válido (mínimo 5 caracteres).',
+            );
             return;
         }
 
+        const url =
+            rejectTarget.kind === 'trabajador'
+                ? `/documentos-trabajadores/${rejectTarget.id}/reject`
+                : `/documentos/${rejectTarget.id}/reject`;
+
         router.post(
-            `/documentos/${rejectDocumento.id}/reject`,
+            url,
             { motivo_rechazo: motivo },
             {
                 preserveScroll: true,
                 onSuccess: () => {
-                    setRejectDocumento(null);
+                    setRejectTarget(null);
                     setMotivoRechazo('');
                     setRejectError('');
                 },
                 onError: (errors) => {
                     const firstError = Object.values(errors)[0];
-                    if (typeof firstError === 'string' && firstError.length > 0) {
+                    if (
+                        typeof firstError === 'string' &&
+                        firstError.length > 0
+                    ) {
                         setRejectError(firstError);
                     }
                 },
             },
         );
     };
+
+    const renderEstadoBadge = (
+        estado: 'pendiente_validacion' | 'aprobado' | 'rechazado',
+    ) => {
+        if (estado === 'pendiente_validacion') {
+            return (
+                <Badge variant="secondary">
+                    <Clock className="mr-1 size-3" />
+                    Pendiente de aprobación
+                </Badge>
+            );
+        }
+
+        if (estado === 'aprobado') {
+            return (
+                <Badge variant="default">
+                    <CheckCircle className="mr-1 size-3" />
+                    Aprobado
+                </Badge>
+            );
+        }
+
+        return (
+            <Badge variant="destructive">
+                <XCircle className="mr-1 size-3" />
+                Rechazado
+            </Badge>
+        );
+    };
+
+    const renderRejectTooltip = (motivoRechazo: string | null) =>
+        motivoRechazo && (
+            <Tooltip>
+                <TooltipTrigger asChild>
+                    <button type="button" className="cursor-help">
+                        <Info className="size-3.5 text-destructive" />
+                    </button>
+                </TooltipTrigger>
+                <TooltipContent side="right" className="max-w-xs text-xs">
+                    <p className="mb-0.5 font-medium">Motivo del rechazo:</p>
+                    <p>{motivoRechazo}</p>
+                </TooltipContent>
+            </Tooltip>
+        );
 
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
@@ -204,9 +346,12 @@ export default function DocumentosAprobaciones({
             <div className="space-y-6">
                 <div className="flex flex-wrap items-center justify-between gap-3">
                     <div>
-                        <h1 className="text-3xl font-bold tracking-tight">Bandeja de Aprobación</h1>
+                        <h1 className="text-3xl font-bold tracking-tight">
+                            Bandeja de Aprobación
+                        </h1>
                         <p className="text-muted-foreground">
-                            Revisión de documentos cargados pendientes de validación administrativa.
+                            Revisión de documentos cargados pendientes de
+                            validación administrativa.
                         </p>
                     </div>
                     <div className="flex items-center gap-2">
@@ -214,7 +359,8 @@ export default function DocumentosAprobaciones({
                             <Link href="/documentos">Ir a Documentos</Link>
                         </Button>
                         <Badge className="bg-[var(--brand-orange)] text-white">
-                            {documentos.total} documento(s)
+                            {documentos.total + documentosTrabajadores.total}{' '}
+                            documento(s)
                         </Badge>
                     </div>
                 </div>
@@ -226,25 +372,36 @@ export default function DocumentosAprobaciones({
                             Filtros de aprobación
                         </CardTitle>
                         <CardDescription>
-                            Acota la revisión por tipo de documento, contratista o año.
+                            Acota la revisión por tipo de documento, contratista
+                            o año.
                         </CardDescription>
                     </CardHeader>
                     <CardContent className="grid gap-4 md:grid-cols-4">
                         <div className="space-y-2">
-                            <label className="text-sm font-medium">Tipo de Documento</label>
+                            <label className="text-sm font-medium">
+                                Tipo de Documento
+                            </label>
                             <Select
                                 value={filters.tipo_documento_id || 'all'}
                                 onValueChange={(value) =>
-                                    handleFilterChange('tipo_documento_id', value === 'all' ? '' : value)
+                                    handleFilterChange(
+                                        'tipo_documento_id',
+                                        value === 'all' ? '' : value,
+                                    )
                                 }
                             >
                                 <SelectTrigger>
                                     <SelectValue placeholder="Todos los tipos" />
                                 </SelectTrigger>
                                 <SelectContent>
-                                    <SelectItem value="all">Todos los tipos</SelectItem>
+                                    <SelectItem value="all">
+                                        Todos los tipos
+                                    </SelectItem>
                                     {tiposDocumentos.map((tipo) => (
-                                        <SelectItem key={tipo.id} value={tipo.id.toString()}>
+                                        <SelectItem
+                                            key={tipo.id}
+                                            value={tipo.id.toString()}
+                                        >
                                             {tipo.nombre}
                                         </SelectItem>
                                     ))}
@@ -254,20 +411,30 @@ export default function DocumentosAprobaciones({
 
                         {contratistas.length > 0 && (
                             <div className="space-y-2">
-                                <label className="text-sm font-medium">Contratista</label>
+                                <label className="text-sm font-medium">
+                                    Contratista
+                                </label>
                                 <Select
                                     value={filters.contratista_id || 'all'}
                                     onValueChange={(value) =>
-                                        handleFilterChange('contratista_id', value === 'all' ? '' : value)
+                                        handleFilterChange(
+                                            'contratista_id',
+                                            value === 'all' ? '' : value,
+                                        )
                                     }
                                 >
                                     <SelectTrigger>
                                         <SelectValue placeholder="Todos los contratistas" />
                                     </SelectTrigger>
                                     <SelectContent>
-                                        <SelectItem value="all">Todos los contratistas</SelectItem>
+                                        <SelectItem value="all">
+                                            Todos los contratistas
+                                        </SelectItem>
                                         {contratistas.map((contratista) => (
-                                            <SelectItem key={contratista.value} value={contratista.value}>
+                                            <SelectItem
+                                                key={contratista.value}
+                                                value={contratista.value}
+                                            >
                                                 {contratista.label}
                                             </SelectItem>
                                         ))}
@@ -277,20 +444,31 @@ export default function DocumentosAprobaciones({
                         )}
 
                         <div className="space-y-2">
-                            <label className="text-sm font-medium">Estado</label>
+                            <label className="text-sm font-medium">
+                                Estado
+                            </label>
                             <Select
                                 value={filters.estado || 'all'}
                                 onValueChange={(value) =>
-                                    handleFilterChange('estado', value === 'all' ? '' : value)
+                                    handleFilterChange(
+                                        'estado',
+                                        value === 'all' ? '' : value,
+                                    )
                                 }
                             >
                                 <SelectTrigger>
                                     <SelectValue placeholder="Todos los estados" />
                                 </SelectTrigger>
                                 <SelectContent>
-                                    <SelectItem value="all">Todos los estados</SelectItem>
-                                    <SelectItem value="pendiente_validacion">Pendiente</SelectItem>
-                                    <SelectItem value="rechazado">Rechazado</SelectItem>
+                                    <SelectItem value="all">
+                                        Todos los estados
+                                    </SelectItem>
+                                    <SelectItem value="pendiente_validacion">
+                                        Pendiente
+                                    </SelectItem>
+                                    <SelectItem value="rechazado">
+                                        Rechazado
+                                    </SelectItem>
                                 </SelectContent>
                             </Select>
                         </div>
@@ -300,16 +478,27 @@ export default function DocumentosAprobaciones({
                             <Select
                                 value={filters.ano || 'all'}
                                 onValueChange={(value) =>
-                                    handleFilterChange('ano', value === 'all' ? '' : value)
+                                    handleFilterChange(
+                                        'ano',
+                                        value === 'all' ? '' : value,
+                                    )
                                 }
                             >
                                 <SelectTrigger>
                                     <SelectValue placeholder="Todos los años" />
                                 </SelectTrigger>
                                 <SelectContent>
-                                    <SelectItem value="all">Todos los años</SelectItem>
-                                    {Array.from({ length: 5 }, (_, i) => new Date().getFullYear() - i).map((year) => (
-                                        <SelectItem key={year} value={year.toString()}>
+                                    <SelectItem value="all">
+                                        Todos los años
+                                    </SelectItem>
+                                    {Array.from(
+                                        { length: 5 },
+                                        (_, i) => new Date().getFullYear() - i,
+                                    ).map((year) => (
+                                        <SelectItem
+                                            key={year}
+                                            value={year.toString()}
+                                        >
                                             {year}
                                         </SelectItem>
                                     ))}
@@ -321,7 +510,9 @@ export default function DocumentosAprobaciones({
 
                 <Card>
                     <CardHeader>
-                        <CardTitle>Documentos pendientes y rechazados</CardTitle>
+                        <CardTitle>
+                            Documentos de empresa pendientes y rechazados
+                        </CardTitle>
                     </CardHeader>
                     <CardContent>
                         <Table>
@@ -333,14 +524,20 @@ export default function DocumentosAprobaciones({
                                     <TableHead>Contratista</TableHead>
                                     <TableHead>Estado</TableHead>
                                     <TableHead>Fecha de Carga</TableHead>
-                                    <TableHead className="text-right">Acciones</TableHead>
+                                    <TableHead className="text-right">
+                                        Acciones
+                                    </TableHead>
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
                                 {documentos.data.length === 0 ? (
                                     <TableRow>
-                                        <TableCell colSpan={7} className="text-center text-muted-foreground">
-                                            No hay documentos con los filtros seleccionados.
+                                        <TableCell
+                                            colSpan={7}
+                                            className="text-center text-muted-foreground"
+                                        >
+                                            No hay documentos con los filtros
+                                            seleccionados.
                                         </TableCell>
                                     </TableRow>
                                 ) : (
@@ -349,11 +546,20 @@ export default function DocumentosAprobaciones({
                                             <TableCell className="font-medium">
                                                 <div className="flex items-center gap-2">
                                                     <FileText className="size-4 text-muted-foreground" />
-                                                    {documento.tipo_documento.nombre}
+                                                    {
+                                                        documento.tipo_documento
+                                                            .nombre
+                                                    }
                                                 </div>
                                             </TableCell>
                                             <TableCell>
-                                                <Badge variant={documento.es_ultima_version ? 'default' : 'outline'}>
+                                                <Badge
+                                                    variant={
+                                                        documento.es_ultima_version
+                                                            ? 'default'
+                                                            : 'outline'
+                                                    }
+                                                >
                                                     v{documento.version}
                                                 </Badge>
                                             </TableCell>
@@ -363,38 +569,25 @@ export default function DocumentosAprobaciones({
                                                     : documento.periodo_ano}
                                             </TableCell>
                                             <TableCell>
-                                                {documento.contratista.nombre_fantasia || documento.contratista.razon_social}
+                                                {documento.contratista
+                                                    .nombre_fantasia ||
+                                                    documento.contratista
+                                                        .razon_social}
                                             </TableCell>
                                             <TableCell>
                                                 <div className="flex items-center gap-1">
-                                                    {documento.estado === 'pendiente_validacion' ? (
-                                                        <Badge variant="secondary">
-                                                            <Clock className="mr-1 size-3" />
-                                                            Pendiente de aprobación
-                                                        </Badge>
-                                                    ) : (
-                                                        <Badge variant="destructive">
-                                                            <XCircle className="mr-1 size-3" />
-                                                            Rechazado
-                                                        </Badge>
+                                                    {renderEstadoBadge(
+                                                        documento.estado,
                                                     )}
-                                                    {documento.estado === 'rechazado' && documento.motivo_rechazo && (
-                                                        <Tooltip>
-                                                            <TooltipTrigger asChild>
-                                                                <button type="button" className="cursor-help">
-                                                                    <Info className="size-3.5 text-destructive" />
-                                                                </button>
-                                                            </TooltipTrigger>
-                                                            <TooltipContent side="right" className="max-w-xs text-xs">
-                                                                <p className="font-medium mb-0.5">Motivo del rechazo:</p>
-                                                                <p>{documento.motivo_rechazo}</p>
-                                                            </TooltipContent>
-                                                        </Tooltip>
+                                                    {renderRejectTooltip(
+                                                        documento.motivo_rechazo,
                                                     )}
                                                 </div>
                                             </TableCell>
                                             <TableCell>
-                                                {new Date(documento.created_at).toLocaleDateString('es-CL')}
+                                                {new Date(
+                                                    documento.created_at,
+                                                ).toLocaleDateString('es-CL')}
                                             </TableCell>
                                             <TableCell className="text-right">
                                                 <div className="flex justify-end gap-1">
@@ -402,34 +595,57 @@ export default function DocumentosAprobaciones({
                                                         variant="ghost"
                                                         size="sm"
                                                         type="button"
-                                                        onClick={() => setPreviewDocumento(documento)}
+                                                        onClick={() =>
+                                                            openPreview(
+                                                                documento,
+                                                                'documento',
+                                                            )
+                                                        }
                                                     >
                                                         <Eye className="size-4" />
                                                     </Button>
-                                                    {isAdmin && documento.estado === 'pendiente_validacion' && (
-                                                        <>
-                                                            <Button
-                                                                variant="ghost"
-                                                                size="sm"
-                                                                type="button"
-                                                                onClick={() => approveDocumento(documento)}
-                                                                className="text-[var(--brand-green)]"
-                                                            >
-                                                                <CheckCircle className="size-4" />
-                                                            </Button>
-                                                            <Button
-                                                                variant="ghost"
-                                                                size="sm"
-                                                                type="button"
-                                                                onClick={() => openRejectDialog(documento)}
-                                                                className="text-destructive"
-                                                            >
-                                                                <XCircle className="size-4" />
-                                                            </Button>
-                                                        </>
-                                                    )}
-                                                    <Button variant="ghost" size="sm" asChild>
-                                                        <Link href={`/documentos/${documento.id}/download`}>
+                                                    {isAdmin &&
+                                                        documento.estado ===
+                                                            'pendiente_validacion' && (
+                                                            <>
+                                                                <Button
+                                                                    variant="ghost"
+                                                                    size="sm"
+                                                                    type="button"
+                                                                    onClick={() =>
+                                                                        approveDocumento(
+                                                                            documento.id,
+                                                                            'documento',
+                                                                        )
+                                                                    }
+                                                                    className="text-[var(--brand-green)]"
+                                                                >
+                                                                    <CheckCircle className="size-4" />
+                                                                </Button>
+                                                                <Button
+                                                                    variant="ghost"
+                                                                    size="sm"
+                                                                    type="button"
+                                                                    onClick={() =>
+                                                                        openRejectDialog(
+                                                                            documento,
+                                                                            'documento',
+                                                                        )
+                                                                    }
+                                                                    className="text-destructive"
+                                                                >
+                                                                    <XCircle className="size-4" />
+                                                                </Button>
+                                                            </>
+                                                        )}
+                                                    <Button
+                                                        variant="ghost"
+                                                        size="sm"
+                                                        asChild
+                                                    >
+                                                        <Link
+                                                            href={`/documentos/${documento.id}/download`}
+                                                        >
                                                             <Download className="size-4" />
                                                         </Link>
                                                     </Button>
@@ -444,7 +660,8 @@ export default function DocumentosAprobaciones({
                         {documentos.last_page > 1 && (
                             <div className="mt-4 flex items-center justify-between">
                                 <p className="text-sm text-muted-foreground">
-                                    Página {documentos.current_page} de {documentos.last_page}
+                                    Página {documentos.current_page} de{' '}
+                                    {documentos.last_page}
                                 </p>
                                 <div className="flex gap-2">
                                     <Button
@@ -454,7 +671,9 @@ export default function DocumentosAprobaciones({
                                         asChild
                                     >
                                         <Link
-                                            href={buildPageHref(documentos.current_page - 1)}
+                                            href={buildPageHref(
+                                                documentos.current_page - 1,
+                                            )}
                                             preserveState
                                         >
                                             Anterior
@@ -463,11 +682,227 @@ export default function DocumentosAprobaciones({
                                     <Button
                                         variant="outline"
                                         size="sm"
-                                        disabled={documentos.current_page === documentos.last_page}
+                                        disabled={
+                                            documentos.current_page ===
+                                            documentos.last_page
+                                        }
                                         asChild
                                     >
                                         <Link
-                                            href={buildPageHref(documentos.current_page + 1)}
+                                            href={buildPageHref(
+                                                documentos.current_page + 1,
+                                            )}
+                                            preserveState
+                                        >
+                                            Siguiente
+                                        </Link>
+                                    </Button>
+                                </div>
+                            </div>
+                        )}
+                    </CardContent>
+                </Card>
+
+                <Card>
+                    <CardHeader>
+                        <CardTitle>
+                            Documentos del trabajador pendientes y rechazados
+                        </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                        <Table>
+                            <TableHeader>
+                                <TableRow>
+                                    <TableHead>Tipo</TableHead>
+                                    <TableHead>Trabajador</TableHead>
+                                    <TableHead>Versión</TableHead>
+                                    <TableHead>Estado</TableHead>
+                                    <TableHead>Fecha de Carga</TableHead>
+                                    <TableHead className="text-right">
+                                        Acciones
+                                    </TableHead>
+                                </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                                {documentosTrabajadores.data.length === 0 ? (
+                                    <TableRow>
+                                        <TableCell
+                                            colSpan={6}
+                                            className="text-center text-muted-foreground"
+                                        >
+                                            No hay documentos del trabajador con
+                                            los filtros seleccionados.
+                                        </TableCell>
+                                    </TableRow>
+                                ) : (
+                                    documentosTrabajadores.data.map(
+                                        (documento) => (
+                                            <TableRow key={documento.id}>
+                                                <TableCell className="font-medium">
+                                                    <div className="flex items-center gap-2">
+                                                        <IdCard className="size-4 text-muted-foreground" />
+                                                        {
+                                                            documento
+                                                                .tipo_documento
+                                                                .nombre
+                                                        }
+                                                    </div>
+                                                </TableCell>
+                                                <TableCell>
+                                                    <div className="font-medium">
+                                                        {
+                                                            documento.trabajador
+                                                                .nombre
+                                                        }{' '}
+                                                        {
+                                                            documento.trabajador
+                                                                .apellido
+                                                        }
+                                                    </div>
+                                                    <div className="text-sm text-muted-foreground">
+                                                        {
+                                                            documento.trabajador
+                                                                .documento
+                                                        }
+                                                    </div>
+                                                </TableCell>
+                                                <TableCell>
+                                                    <Badge
+                                                        variant={
+                                                            documento.es_ultima_version
+                                                                ? 'default'
+                                                                : 'outline'
+                                                        }
+                                                    >
+                                                        v{documento.version}
+                                                    </Badge>
+                                                </TableCell>
+                                                <TableCell>
+                                                    <div className="flex items-center gap-1">
+                                                        {renderEstadoBadge(
+                                                            documento.estado,
+                                                        )}
+                                                        {renderRejectTooltip(
+                                                            documento.motivo_rechazo,
+                                                        )}
+                                                    </div>
+                                                </TableCell>
+                                                <TableCell>
+                                                    {new Date(
+                                                        documento.created_at,
+                                                    ).toLocaleDateString(
+                                                        'es-CL',
+                                                    )}
+                                                </TableCell>
+                                                <TableCell className="text-right">
+                                                    <div className="flex justify-end gap-1">
+                                                        <Button
+                                                            variant="ghost"
+                                                            size="sm"
+                                                            type="button"
+                                                            onClick={() =>
+                                                                openPreview(
+                                                                    documento,
+                                                                    'trabajador',
+                                                                )
+                                                            }
+                                                        >
+                                                            <Eye className="size-4" />
+                                                        </Button>
+                                                        {isAdmin &&
+                                                            documento.estado ===
+                                                                'pendiente_validacion' && (
+                                                                <>
+                                                                    <Button
+                                                                        variant="ghost"
+                                                                        size="sm"
+                                                                        type="button"
+                                                                        onClick={() =>
+                                                                            approveDocumento(
+                                                                                documento.id,
+                                                                                'trabajador',
+                                                                            )
+                                                                        }
+                                                                        className="text-[var(--brand-green)]"
+                                                                    >
+                                                                        <CheckCircle className="size-4" />
+                                                                    </Button>
+                                                                    <Button
+                                                                        variant="ghost"
+                                                                        size="sm"
+                                                                        type="button"
+                                                                        onClick={() =>
+                                                                            openRejectDialog(
+                                                                                documento,
+                                                                                'trabajador',
+                                                                            )
+                                                                        }
+                                                                        className="text-destructive"
+                                                                    >
+                                                                        <XCircle className="size-4" />
+                                                                    </Button>
+                                                                </>
+                                                            )}
+                                                        <Button
+                                                            variant="ghost"
+                                                            size="sm"
+                                                            asChild
+                                                        >
+                                                            <Link
+                                                                href={`/documentos-trabajadores/${documento.id}/download`}
+                                                            >
+                                                                <Download className="size-4" />
+                                                            </Link>
+                                                        </Button>
+                                                    </div>
+                                                </TableCell>
+                                            </TableRow>
+                                        ),
+                                    )
+                                )}
+                            </TableBody>
+                        </Table>
+
+                        {documentosTrabajadores.last_page > 1 && (
+                            <div className="mt-4 flex items-center justify-between">
+                                <p className="text-sm text-muted-foreground">
+                                    Página {documentosTrabajadores.current_page}{' '}
+                                    de {documentosTrabajadores.last_page}
+                                </p>
+                                <div className="flex gap-2">
+                                    <Button
+                                        variant="outline"
+                                        size="sm"
+                                        disabled={
+                                            documentosTrabajadores.current_page ===
+                                            1
+                                        }
+                                        asChild
+                                    >
+                                        <Link
+                                            href={buildPageHref(
+                                                documentosTrabajadores.current_page -
+                                                    1,
+                                            )}
+                                            preserveState
+                                        >
+                                            Anterior
+                                        </Link>
+                                    </Button>
+                                    <Button
+                                        variant="outline"
+                                        size="sm"
+                                        disabled={
+                                            documentosTrabajadores.current_page ===
+                                            documentosTrabajadores.last_page
+                                        }
+                                        asChild
+                                    >
+                                        <Link
+                                            href={buildPageHref(
+                                                documentosTrabajadores.current_page +
+                                                    1,
+                                            )}
                                             preserveState
                                         >
                                             Siguiente
@@ -481,10 +916,10 @@ export default function DocumentosAprobaciones({
             </div>
 
             <Dialog
-                open={previewDocumento !== null}
+                open={preview !== null}
                 onOpenChange={(open) => {
                     if (!open) {
-                        setPreviewDocumento(null);
+                        setPreview(null);
                     }
                 }}
             >
@@ -492,15 +927,18 @@ export default function DocumentosAprobaciones({
                     <DialogHeader>
                         <DialogTitle>Visor de documento</DialogTitle>
                         <DialogDescription>
-                            {previewDocumento?.archivo_nombre_original || 'Documento'}
+                            {preview?.archivoNombre || 'Documento'}
                         </DialogDescription>
                     </DialogHeader>
 
-                    {previewDocumento && (
+                    {preview && (
                         <div className="space-y-3">
-                            <div className="flex justify-end">
+                            <div className="flex items-center justify-between">
+                                <p className="text-sm font-medium">
+                                    {preview.titulo}
+                                </p>
                                 <Button variant="outline" asChild>
-                                    <Link href={`/documentos/${previewDocumento.id}/download`}>
+                                    <Link href={preview.downloadUrl}>
                                         <Download className="mr-2 size-4" />
                                         Descargar
                                     </Link>
@@ -509,8 +947,8 @@ export default function DocumentosAprobaciones({
 
                             <div className="h-[70vh] overflow-hidden rounded-lg border border-border/70 bg-muted/15">
                                 <iframe
-                                    src={`/documentos/${previewDocumento.id}/preview`}
-                                    title={`Vista previa documento ${previewDocumento.id}`}
+                                    src={preview.previewUrl}
+                                    title={`Vista previa ${preview.titulo}`}
                                     className="h-full w-full"
                                 />
                             </div>
@@ -520,10 +958,10 @@ export default function DocumentosAprobaciones({
             </Dialog>
 
             <Dialog
-                open={rejectDocumento !== null}
+                open={rejectTarget !== null}
                 onOpenChange={(open) => {
                     if (!open) {
-                        setRejectDocumento(null);
+                        setRejectTarget(null);
                         setMotivoRechazo('');
                         setRejectError('');
                     }
@@ -533,19 +971,23 @@ export default function DocumentosAprobaciones({
                     <DialogHeader>
                         <DialogTitle>Rechazar documento</DialogTitle>
                         <DialogDescription>
-                            Indica el motivo para notificar al contratista.
+                            Indica el motivo para notificar al responsable.
                         </DialogDescription>
                     </DialogHeader>
 
                     <div className="space-y-3">
                         <Textarea
                             value={motivoRechazo}
-                            onChange={(event) => setMotivoRechazo(event.target.value)}
+                            onChange={(event) =>
+                                setMotivoRechazo(event.target.value)
+                            }
                             placeholder="Ejemplo: archivo ilegible, información incompleta, período incorrecto..."
                             rows={4}
                         />
                         {rejectError && (
-                            <p className="text-sm text-destructive">{rejectError}</p>
+                            <p className="text-sm text-destructive">
+                                {rejectError}
+                            </p>
                         )}
 
                         <div className="flex justify-end gap-2">
@@ -553,14 +995,18 @@ export default function DocumentosAprobaciones({
                                 variant="outline"
                                 type="button"
                                 onClick={() => {
-                                    setRejectDocumento(null);
+                                    setRejectTarget(null);
                                     setMotivoRechazo('');
                                     setRejectError('');
                                 }}
                             >
                                 Cancelar
                             </Button>
-                            <Button type="button" variant="destructive" onClick={submitReject}>
+                            <Button
+                                type="button"
+                                variant="destructive"
+                                onClick={submitReject}
+                            >
                                 Confirmar rechazo
                             </Button>
                         </div>

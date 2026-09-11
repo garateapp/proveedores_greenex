@@ -1,9 +1,5 @@
-import {
-    Badge,
-} from '@/components/ui/badge';
-import {
-    Button,
-} from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import {
     Card,
     CardContent,
@@ -23,6 +19,7 @@ import {
     DialogHeader,
     DialogTitle,
 } from '@/components/ui/dialog';
+import { Label } from '@/components/ui/label';
 import {
     Select,
     SelectContent,
@@ -30,10 +27,7 @@ import {
     SelectTrigger,
     SelectValue,
 } from '@/components/ui/select';
-import { Label } from '@/components/ui/label';
-import {
-    Switch,
-} from '@/components/ui/switch';
+import { Switch } from '@/components/ui/switch';
 import {
     Table,
     TableBody,
@@ -48,16 +42,8 @@ import {
     TooltipTrigger,
 } from '@/components/ui/tooltip';
 import AppLayout from '@/layouts/app-layout';
-import {
-    type BreadcrumbItem,
-    type SharedData,
-} from '@/types';
-import {
-    Head,
-    Link,
-    router,
-    usePage,
-} from '@inertiajs/react';
+import { type BreadcrumbItem, type SharedData } from '@/types';
+import { Head, Link, router, usePage } from '@inertiajs/react';
 import {
     AlertCircle,
     CheckCircle,
@@ -67,6 +53,7 @@ import {
     Eye,
     FileText,
     History,
+    IdCard,
     Info,
     Upload,
     XCircle,
@@ -116,12 +103,36 @@ interface Documento {
     updated_at: string;
 }
 
-interface Pagination {
+interface Trabajador {
+    id: string;
+    documento: string;
+    nombre: string;
+    apellido: string;
+    contratista: Contratista | null;
+}
+
+interface DocumentoTrabajador {
+    id: number;
+    tipo_documento_id: number;
+    trabajador_id: string;
+    version: number;
+    es_ultima_version: boolean;
+    archivo_nombre_original?: string;
+    estado: 'pendiente_validacion' | 'aprobado' | 'rechazado' | 'vencido';
+    fecha_vencimiento: string | null;
+    motivo_rechazo: string | null;
+    tipo_documento: TipoDocumento;
+    trabajador: Trabajador;
+    created_at: string;
+    updated_at: string;
+}
+
+interface Pagination<T> {
     current_page: number;
     last_page: number;
     per_page: number;
     total: number;
-    data: Documento[];
+    data: T[];
 }
 
 interface Filters {
@@ -133,10 +144,18 @@ interface Filters {
 }
 
 interface Props {
-    documentos: Pagination;
+    documentos: Pagination<Documento>;
+    documentosTrabajadores: Pagination<DocumentoTrabajador>;
     tiposDocumentos: TipoDocumento[];
     contratistas: { value: string; label: string }[];
     filters: Filters;
+}
+
+interface PreviewTarget {
+    titulo: string;
+    archivoNombre: string;
+    previewUrl: string;
+    downloadUrl: string;
 }
 
 type Estado = Documento['estado'];
@@ -210,15 +229,14 @@ const formatPeriodo = (ano: number, mes: number | null): string => {
 
 export default function DocumentosIndex({
     documentos,
+    documentosTrabajadores,
     tiposDocumentos,
     contratistas,
     filters,
 }: Props) {
     const page = usePage<SharedData>();
     const isAdmin = page.props.auth?.user?.isAdmin ?? false;
-    const [previewDocumento, setPreviewDocumento] = useState<Documento | null>(
-        null,
-    );
+    const [preview, setPreview] = useState<PreviewTarget | null>(null);
     const mostrarTodasVersiones = filters.incluir_todas_versiones === '1';
 
     const grupos = useMemo<DocumentoGroup[]>(() => {
@@ -285,7 +303,10 @@ export default function DocumentosIndex({
         }
 
         if (filters.incluir_todas_versiones) {
-            params.set('incluir_todas_versiones', filters.incluir_todas_versiones);
+            params.set(
+                'incluir_todas_versiones',
+                filters.incluir_todas_versiones,
+            );
         }
 
         params.set('page', pageNumber.toString());
@@ -305,6 +326,53 @@ export default function DocumentosIndex({
         }
 
         return `/documentos/create?${params.toString()}`;
+    };
+
+    const openPreview = (
+        documento: Documento | DocumentoTrabajador,
+        kind: 'documento' | 'trabajador',
+    ): void => {
+        const urlPrefix =
+            kind === 'trabajador' ? '/documentos-trabajadores' : '/documentos';
+
+        setPreview({
+            titulo: documento.tipo_documento.nombre,
+            archivoNombre: documento.archivo_nombre_original ?? 'Documento',
+            previewUrl: `${urlPrefix}/${documento.id}/preview`,
+            downloadUrl: `${urlPrefix}/${documento.id}/download`,
+        });
+    };
+
+    const renderEstadoCell = (estado: Estado, motivoRechazo: string | null) => {
+        const config = estadoBadgeConfig(estado);
+        const Icon = config.icon;
+
+        return (
+            <div className="flex items-center gap-1">
+                <Badge variant={config.variant}>
+                    <Icon className="mr-1 size-3" />
+                    {config.label}
+                </Badge>
+                {estado === 'rechazado' && motivoRechazo && (
+                    <Tooltip>
+                        <TooltipTrigger asChild>
+                            <button type="button" className="cursor-help">
+                                <Info className="size-3.5 text-destructive" />
+                            </button>
+                        </TooltipTrigger>
+                        <TooltipContent
+                            side="right"
+                            className="max-w-xs text-xs"
+                        >
+                            <p className="mb-0.5 font-medium">
+                                Motivo del rechazo:
+                            </p>
+                            <p>{motivoRechazo}</p>
+                        </TooltipContent>
+                    </Tooltip>
+                )}
+            </div>
+        );
     };
 
     return (
@@ -528,11 +596,12 @@ export default function DocumentosIndex({
                                 latest.estado,
                             );
                             const EstadoIcon = estadoConfig.icon;
-                            const mostrandoUnaVersion =
-                                grupo.documentos.length === 1;
 
                             return (
-                                <Card key={grupo.key} className="overflow-hidden">
+                                <Card
+                                    key={grupo.key}
+                                    className="overflow-hidden"
+                                >
                                     <Collapsible
                                         defaultOpen={mostrarTodasVersiones}
                                     >
@@ -542,7 +611,7 @@ export default function DocumentosIndex({
                                                     <FileText className="size-4 text-muted-foreground" />
                                                 </div>
                                                 <div>
-                                                    <p className="font-medium leading-tight">
+                                                    <p className="leading-tight font-medium">
                                                         {
                                                             grupo.tipoDocumento
                                                                 .nombre
@@ -556,7 +625,8 @@ export default function DocumentosIndex({
                                                         {isAdmin && (
                                                             <>
                                                                 {' · '}
-                                                                {grupo.contratista
+                                                                {grupo
+                                                                    .contratista
                                                                     .nombre_fantasia ||
                                                                     grupo
                                                                         .contratista
@@ -575,7 +645,8 @@ export default function DocumentosIndex({
                                                     <EstadoIcon className="mr-1 size-3" />
                                                     {estadoConfig.label}
                                                 </Badge>
-                                                {grupo.documentos.length > 1 && (
+                                                {grupo.documentos.length >
+                                                    1 && (
                                                     <Badge variant="outline">
                                                         <History className="mr-1 size-3" />
                                                         {
@@ -583,8 +654,8 @@ export default function DocumentosIndex({
                                                                 .length
                                                         }{' '}
                                                         version
-                                                        {grupo.documentos.length !==
-                                                        1
+                                                        {grupo.documentos
+                                                            .length !== 1
                                                             ? 'es'
                                                             : ''}
                                                     </Badge>
@@ -620,13 +691,6 @@ export default function DocumentosIndex({
                                                 <TableBody>
                                                     {grupo.documentos.map(
                                                         (documento) => {
-                                                            const config =
-                                                                estadoBadgeConfig(
-                                                                    documento.estado,
-                                                                );
-                                                            const Icon =
-                                                                config.icon;
-
                                                             return (
                                                                 <TableRow
                                                                     key={
@@ -666,47 +730,10 @@ export default function DocumentosIndex({
                                                                         </p>
                                                                     </TableCell>
                                                                     <TableCell>
-                                                                        <div className="flex items-center gap-1">
-                                                                            <Badge
-                                                                                variant={
-                                                                                    config.variant
-                                                                                }
-                                                                            >
-                                                                                <Icon className="mr-1 size-3" />
-                                                                                {
-                                                                                    config.label
-                                                                                }
-                                                                            </Badge>
-                                                                            {documento.estado ===
-                                                                                'rechazado' &&
-                                                                                documento.motivo_rechazo && (
-                                                                                    <Tooltip>
-                                                                                        <TooltipTrigger asChild>
-                                                                                            <button
-                                                                                                type="button"
-                                                                                                className="cursor-help"
-                                                                                            >
-                                                                                                <Info className="size-3.5 text-destructive" />
-                                                                                            </button>
-                                                                                        </TooltipTrigger>
-                                                                                        <TooltipContent
-                                                                                            side="right"
-                                                                                            className="max-w-xs text-xs"
-                                                                                        >
-                                                                                            <p className="mb-0.5 font-medium">
-                                                                                                Motivo
-                                                                                                del
-                                                                                                rechazo:
-                                                                                            </p>
-                                                                                            <p>
-                                                                                                {
-                                                                                                    documento.motivo_rechazo
-                                                                                                }
-                                                                                            </p>
-                                                                                        </TooltipContent>
-                                                                                    </Tooltip>
-                                                                                )}
-                                                                        </div>
+                                                                        {renderEstadoCell(
+                                                                            documento.estado,
+                                                                            documento.motivo_rechazo,
+                                                                        )}
                                                                     </TableCell>
                                                                     <TableCell className="text-sm">
                                                                         {new Date(
@@ -731,8 +758,9 @@ export default function DocumentosIndex({
                                                                                 size="sm"
                                                                                 type="button"
                                                                                 onClick={() =>
-                                                                                    setPreviewDocumento(
+                                                                                    openPreview(
                                                                                         documento,
+                                                                                        'documento',
                                                                                     )
                                                                                 }
                                                                             >
@@ -826,13 +854,224 @@ export default function DocumentosIndex({
                         </div>
                     </div>
                 )}
+
+                {/* Documentos del trabajador */}
+                <Card>
+                    <CardHeader>
+                        <CardTitle className="flex items-center gap-2">
+                            <IdCard className="size-4 text-muted-foreground" />
+                            Documentos del trabajador
+                        </CardTitle>
+                        <CardDescription>
+                            {documentosTrabajadores.total} documento
+                            {documentosTrabajadores.total !== 1 ? 's' : ''} de
+                            trabajadores en esta vista
+                        </CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                        <Table>
+                            <TableHeader>
+                                <TableRow>
+                                    <TableHead>Tipo</TableHead>
+                                    <TableHead>Trabajador</TableHead>
+                                    <TableHead>Versión</TableHead>
+                                    {isAdmin && (
+                                        <TableHead>Contratista</TableHead>
+                                    )}
+                                    <TableHead>Estado</TableHead>
+                                    <TableHead>Fecha Carga</TableHead>
+                                    <TableHead>Vencimiento</TableHead>
+                                    <TableHead className="text-right">
+                                        Acciones
+                                    </TableHead>
+                                </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                                {documentosTrabajadores.data.length === 0 ? (
+                                    <TableRow>
+                                        <TableCell
+                                            colSpan={isAdmin ? 8 : 7}
+                                            className="text-center text-muted-foreground"
+                                        >
+                                            No hay documentos del trabajador con
+                                            los filtros seleccionados.
+                                        </TableCell>
+                                    </TableRow>
+                                ) : (
+                                    documentosTrabajadores.data.map(
+                                        (documento) => (
+                                            <TableRow key={documento.id}>
+                                                <TableCell className="font-medium">
+                                                    <div className="flex items-center gap-2">
+                                                        <IdCard className="size-4 text-muted-foreground" />
+                                                        {
+                                                            documento
+                                                                .tipo_documento
+                                                                .nombre
+                                                        }
+                                                    </div>
+                                                </TableCell>
+                                                <TableCell>
+                                                    <div className="font-medium">
+                                                        {
+                                                            documento.trabajador
+                                                                .nombre
+                                                        }{' '}
+                                                        {
+                                                            documento.trabajador
+                                                                .apellido
+                                                        }
+                                                    </div>
+                                                    <div className="text-sm text-muted-foreground">
+                                                        {
+                                                            documento.trabajador
+                                                                .documento
+                                                        }
+                                                    </div>
+                                                </TableCell>
+                                                <TableCell>
+                                                    <div className="flex items-center gap-2">
+                                                        <Badge
+                                                            variant={
+                                                                documento.es_ultima_version
+                                                                    ? 'default'
+                                                                    : 'outline'
+                                                            }
+                                                        >
+                                                            v{documento.version}
+                                                        </Badge>
+                                                        {documento.es_ultima_version && (
+                                                            <span className="text-xs text-muted-foreground">
+                                                                actual
+                                                            </span>
+                                                        )}
+                                                    </div>
+                                                </TableCell>
+                                                {isAdmin && (
+                                                    <TableCell>
+                                                        {documento.trabajador
+                                                            .contratista
+                                                            ?.nombre_fantasia ||
+                                                            documento.trabajador
+                                                                .contratista
+                                                                ?.razon_social ||
+                                                            '-'}
+                                                    </TableCell>
+                                                )}
+                                                <TableCell>
+                                                    {renderEstadoCell(
+                                                        documento.estado,
+                                                        documento.motivo_rechazo,
+                                                    )}
+                                                </TableCell>
+                                                <TableCell className="text-sm">
+                                                    {new Date(
+                                                        documento.created_at,
+                                                    ).toLocaleDateString(
+                                                        'es-CL',
+                                                    )}
+                                                </TableCell>
+                                                <TableCell className="text-sm">
+                                                    {documento.fecha_vencimiento
+                                                        ? new Date(
+                                                              documento.fecha_vencimiento,
+                                                          ).toLocaleDateString(
+                                                              'es-CL',
+                                                          )
+                                                        : '-'}
+                                                </TableCell>
+                                                <TableCell className="text-right">
+                                                    <div className="flex justify-end gap-1">
+                                                        <Button
+                                                            variant="ghost"
+                                                            size="sm"
+                                                            type="button"
+                                                            onClick={() =>
+                                                                openPreview(
+                                                                    documento,
+                                                                    'trabajador',
+                                                                )
+                                                            }
+                                                        >
+                                                            <Eye className="size-4" />
+                                                        </Button>
+                                                        <Button
+                                                            variant="ghost"
+                                                            size="sm"
+                                                            asChild
+                                                        >
+                                                            <Link
+                                                                href={`/documentos-trabajadores/${documento.id}/download`}
+                                                            >
+                                                                <Download className="size-4" />
+                                                            </Link>
+                                                        </Button>
+                                                    </div>
+                                                </TableCell>
+                                            </TableRow>
+                                        ),
+                                    )
+                                )}
+                            </TableBody>
+                        </Table>
+
+                        {documentosTrabajadores.last_page > 1 && (
+                            <div className="mt-4 flex items-center justify-between">
+                                <p className="text-sm text-muted-foreground">
+                                    Página {documentosTrabajadores.current_page}{' '}
+                                    de {documentosTrabajadores.last_page}
+                                </p>
+                                <div className="flex gap-2">
+                                    <Button
+                                        variant="outline"
+                                        size="sm"
+                                        disabled={
+                                            documentosTrabajadores.current_page ===
+                                            1
+                                        }
+                                        asChild
+                                    >
+                                        <Link
+                                            href={buildPageHref(
+                                                documentosTrabajadores.current_page -
+                                                    1,
+                                            )}
+                                            preserveState
+                                        >
+                                            Anterior
+                                        </Link>
+                                    </Button>
+                                    <Button
+                                        variant="outline"
+                                        size="sm"
+                                        disabled={
+                                            documentosTrabajadores.current_page ===
+                                            documentosTrabajadores.last_page
+                                        }
+                                        asChild
+                                    >
+                                        <Link
+                                            href={buildPageHref(
+                                                documentosTrabajadores.current_page +
+                                                    1,
+                                            )}
+                                            preserveState
+                                        >
+                                            Siguiente
+                                        </Link>
+                                    </Button>
+                                </div>
+                            </div>
+                        )}
+                    </CardContent>
+                </Card>
             </div>
 
             <Dialog
-                open={previewDocumento !== null}
+                open={preview !== null}
                 onOpenChange={(open) => {
                     if (!open) {
-                        setPreviewDocumento(null);
+                        setPreview(null);
                     }
                 }}
             >
@@ -840,20 +1079,16 @@ export default function DocumentosIndex({
                     <DialogHeader>
                         <DialogTitle>Visor de documento</DialogTitle>
                         <DialogDescription>
-                            {previewDocumento?.tipo_documento?.nombre}
-                            {previewDocumento
-                                ? ` · v${previewDocumento.version}`
-                                : ''}
+                            {preview?.titulo}
+                            {preview ? ` · ${preview.archivoNombre}` : ''}
                         </DialogDescription>
                     </DialogHeader>
 
-                    {previewDocumento && (
+                    {preview && (
                         <div className="space-y-3">
                             <div className="flex justify-end">
                                 <Button variant="outline" asChild>
-                                    <Link
-                                        href={`/documentos/${previewDocumento.id}/download`}
-                                    >
+                                    <Link href={preview.downloadUrl}>
                                         <Download className="mr-2 size-4" />
                                         Descargar
                                     </Link>
@@ -862,8 +1097,8 @@ export default function DocumentosIndex({
 
                             <div className="h-[70vh] overflow-hidden rounded-lg border border-border/70 bg-muted/15">
                                 <iframe
-                                    src={`/documentos/${previewDocumento.id}/preview`}
-                                    title={`Vista previa documento ${previewDocumento.id}`}
+                                    src={preview.previewUrl}
+                                    title={`Vista previa ${preview.titulo}`}
                                     className="h-full w-full"
                                 />
                             </div>

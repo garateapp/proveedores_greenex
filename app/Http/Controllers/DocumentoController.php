@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Http\Requests\CentroCargaContratistaDocumentoRequest;
 use App\Models\Contratista;
 use App\Models\Documento;
+use App\Models\DocumentoTrabajador;
 use App\Models\TipoDocumento;
 use App\Models\Trabajador;
 use Illuminate\Http\JsonResponse;
@@ -81,8 +82,50 @@ class DocumentoController extends Controller
 
         $documentos = $query->paginate(50)->withQueryString();
 
+        $documentosTrabajadoresQuery = DocumentoTrabajador::query()
+            ->with([
+                'tipoDocumento:id,nombre,codigo',
+                'trabajador' => function ($trabajadorQuery) {
+                    $trabajadorQuery
+                        ->with('contratista:id,razon_social,nombre_fantasia')
+                        ->select(['id', 'documento', 'nombre', 'apellido', 'contratista_id'])
+                        ->withTrashed();
+                },
+            ])
+            ->whereHas('tipoDocumento', function ($tipoDocumentoQuery) {
+                $tipoDocumentoQuery->where('es_documento_trabajador', true);
+            })
+            ->orderByDesc('created_at');
+
+        if (! $user->isAdmin()) {
+            $documentosTrabajadoresQuery->whereHas('trabajador', function ($trabajadorQuery) use ($user) {
+                $trabajadorQuery->where('contratista_id', $user->contratista_id);
+            });
+        } elseif ($selectedContratistaId) {
+            $documentosTrabajadoresQuery->whereHas('trabajador', function ($trabajadorQuery) use ($selectedContratistaId) {
+                $trabajadorQuery->where('contratista_id', (int) $selectedContratistaId);
+            });
+        }
+
+        if ($selectedTrabajadorId) {
+            $documentosTrabajadoresQuery->where('trabajador_id', $selectedTrabajadorId);
+        }
+
+        if ($tipoDocumentoId = $request->input('tipo_documento_id')) {
+            $documentosTrabajadoresQuery->where('tipo_documento_id', $tipoDocumentoId);
+        }
+
+        if ($estado = $request->input('estado')) {
+            $documentosTrabajadoresQuery->byEstado($estado);
+        }
+
+        if (! $request->boolean('incluir_todas_versiones')) {
+            $documentosTrabajadoresQuery->latestVersion();
+        }
+
+        $documentosTrabajadores = $documentosTrabajadoresQuery->paginate(50)->withQueryString();
+
         $tiposDocumentos = TipoDocumento::active()
-            ->where('es_documento_trabajador', false)
             ->get();
 
         $contratistas = [];
@@ -124,6 +167,7 @@ class DocumentoController extends Controller
 
         return Inertia::render('documentos/index', [
             'documentos' => $documentos,
+            'documentosTrabajadores' => $documentosTrabajadores,
             'tiposDocumentos' => $tiposDocumentos,
             'contratistas' => $contratistas,
             'trabajadores' => $trabajadores,
@@ -170,9 +214,45 @@ class DocumentoController extends Controller
 
         $documentos = $query->paginate(15)->withQueryString();
 
+        $documentosTrabajadoresQuery = DocumentoTrabajador::query()
+            ->with([
+                'tipoDocumento:id,nombre,codigo',
+                'trabajador' => function ($trabajadorQuery) {
+                    $trabajadorQuery
+                        ->with('contratista:id,razon_social,nombre_fantasia')
+                        ->select(['id', 'documento', 'nombre', 'apellido', 'contratista_id'])
+                        ->withTrashed();
+                },
+            ])
+            ->whereIn('estado', ['pendiente_validacion', 'rechazado'])
+            ->whereHas('tipoDocumento', function ($tipoDocumentoQuery) {
+                $tipoDocumentoQuery->where('es_documento_trabajador', true);
+            })
+            ->orderByRaw("CASE WHEN estado = 'rechazado' THEN 0 ELSE 1 END")
+            ->orderByDesc('created_at');
+
+        if (! $user->isAdmin()) {
+            $documentosTrabajadoresQuery->whereHas('trabajador', function ($trabajadorQuery) use ($user) {
+                $trabajadorQuery->where('contratista_id', $user->contratista_id);
+            });
+        } elseif ($contratistaId = $request->input('contratista_id')) {
+            $documentosTrabajadoresQuery->whereHas('trabajador', function ($trabajadorQuery) use ($contratistaId) {
+                $trabajadorQuery->where('contratista_id', $contratistaId);
+            });
+        }
+
+        if ($tipoDocumentoId = $request->input('tipo_documento_id')) {
+            $documentosTrabajadoresQuery->where('tipo_documento_id', $tipoDocumentoId);
+        }
+
+        if ($estado = $request->input('estado')) {
+            $documentosTrabajadoresQuery->byEstado($estado);
+        }
+
+        $documentosTrabajadores = $documentosTrabajadoresQuery->paginate(15)->withQueryString();
+
         $tiposDocumentos = TipoDocumento::query()
             ->active()
-            ->where('es_documento_trabajador', false)
             ->orderBy('nombre')
             ->get(['id', 'nombre', 'codigo']);
 
@@ -190,6 +270,7 @@ class DocumentoController extends Controller
 
         return Inertia::render('documentos/aprobaciones', [
             'documentos' => $documentos,
+            'documentosTrabajadores' => $documentosTrabajadores,
             'tiposDocumentos' => $tiposDocumentos,
             'contratistas' => $contratistas,
             'filters' => $request->only(['tipo_documento_id', 'contratista_id', 'ano', 'estado']),

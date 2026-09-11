@@ -60,6 +60,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::post('trabajadores/{trabajador}/firmas-documentos/{plantillaDocumentoTrabajador}', [DocumentoTrabajadorFirmaController::class, 'store'])->name('trabajadores.firmas.store');
     Route::get('documentos-trabajadores/{documentoTrabajador}/preview', [\App\Http\Controllers\DocumentoTrabajadorController::class, 'preview'])->name('documentos-trabajadores.preview');
     Route::get('documentos-trabajadores/{documentoTrabajador}/download', [\App\Http\Controllers\DocumentoTrabajadorController::class, 'download'])->name('documentos-trabajadores.download');
+    Route::post('documentos-trabajadores/{documentoTrabajador}/approve', [\App\Http\Controllers\DocumentoTrabajadorController::class, 'approve'])->name('documentos-trabajadores.approve');
+    Route::post('documentos-trabajadores/{documentoTrabajador}/reject', [\App\Http\Controllers\DocumentoTrabajadorController::class, 'reject'])->name('documentos-trabajadores.reject');
 
     // Gestión de faenas
     Route::resource('faenas', \App\Http\Controllers\FaenaController::class);
