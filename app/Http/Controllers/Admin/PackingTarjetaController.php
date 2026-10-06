@@ -2,10 +2,15 @@
 
 namespace App\Http\Controllers\Admin;
 
+use App\Actions\GaratePass\AssignAdminTarjetaQrAction;
+use App\Enums\PerfilTarjetaQr;
+use App\Enums\UserRole;
 use App\Http\Controllers\Controller;
+use App\Http\Requests\AdminTarjetaQrRequest;
 use App\Http\Requests\TarjetaQrRequest;
 use App\Models\TarjetaQr;
 use App\Models\Trabajador;
+use App\Models\User;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -19,14 +24,21 @@ class PackingTarjetaController extends Controller
     {
         $search = trim((string) $request->input('search', ''));
         $estado = $request->input('estado');
+        $perfil = $request->input('perfil');
 
-        $tarjetas = $this->tarjetasQuery($search, $estado)
+        $tarjetas = $this->tarjetasQuery($search, $estado, $perfil)
             ->get()
             ->map(fn (TarjetaQr $tarjeta): array => [
                 'id' => $tarjeta->id,
                 'numero_serie' => $tarjeta->numero_serie,
                 'codigo_qr' => $tarjeta->codigo_qr,
                 'estado' => $tarjeta->estado,
+                'perfil' => $tarjeta->perfil?->value,
+                'administrador' => $tarjeta->admin === null ? null : [
+                    'id' => $tarjeta->admin->id,
+                    'nombre' => $tarjeta->admin->name,
+                    'centro_costo' => $tarjeta->admin->centroCosto?->codigo,
+                ],
                 'observaciones' => $tarjeta->observaciones,
                 'trabajador_actual' => $tarjeta->asignacionActiva?->trabajador === null ? null : [
                     'id' => $tarjeta->asignacionActiva->trabajador->id,
@@ -51,12 +63,26 @@ class PackingTarjetaController extends Controller
             ])
             ->values();
 
+        $administradores = User::query()
+            ->where('role', UserRole::Admin->value)
+            ->with('centroCosto')
+            ->orderBy('name')
+            ->get()
+            ->map(fn (User $usuario): array => [
+                'id' => $usuario->id,
+                'nombre' => $usuario->name,
+                'centro_costo' => $usuario->centroCosto?->codigo,
+            ])
+            ->values();
+
         return Inertia::render('admin/packing/tarjetas/index', [
             'tarjetas' => $tarjetas,
             'trabajadores' => $trabajadores,
+            'administradores' => $administradores,
             'filters' => [
                 'search' => $search,
                 'estado' => $estado,
+                'perfil' => $perfil,
             ],
             'estados' => [
                 ['value' => 'disponible', 'label' => 'Disponible'],
@@ -64,6 +90,13 @@ class PackingTarjetaController extends Controller
                 ['value' => 'bloqueada', 'label' => 'Bloqueada'],
                 ['value' => 'baja', 'label' => 'Baja'],
             ],
+            'perfiles' => array_map(
+                fn (PerfilTarjetaQr $perfilTarjeta): array => [
+                    'value' => $perfilTarjeta->value,
+                    'label' => $perfilTarjeta->label(),
+                ],
+                PerfilTarjetaQr::cases(),
+            ),
         ]);
     }
 
@@ -124,10 +157,48 @@ class PackingTarjetaController extends Controller
             ->with('success', 'Tarjeta QR creada correctamente.');
     }
 
-    private function tarjetasQuery(string $search, mixed $estado): Builder
+    /**
+     * Convierte la tarjeta en un QR de administrador del casino.
+     */
+    public function assignAdmin(
+        AdminTarjetaQrRequest $request,
+        TarjetaQr $tarjeta,
+        AssignAdminTarjetaQrAction $assignAdminTarjetaQrAction,
+    ): RedirectResponse {
+        $administrador = User::query()->findOrFail($request->validated('admin_user_id'));
+
+        $assignAdminTarjetaQrAction->executeAsAdmin(
+            $tarjeta,
+            $administrador,
+            $request->user(),
+            $request->validated('observaciones'),
+        );
+
+        return redirect('/admin/packing/tarjetas')
+            ->with('success', "Tarjeta {$tarjeta->numero_serie} asignada a {$administrador->name}.");
+    }
+
+    /**
+     * Devuelve la tarjeta al perfil de comensal, para que vuelva a emitir
+     * vales de almuerzo a quien se le asigne como trabajador.
+     */
+    public function revokeAdmin(TarjetaQr $tarjeta, AssignAdminTarjetaQrAction $assignAdminTarjetaQrAction): RedirectResponse
+    {
+        if (! $tarjeta->esDeAdminCasino()) {
+            return redirect('/admin/packing/tarjetas')
+                ->with('error', 'La tarjeta seleccionada no es un QR de administrador.');
+        }
+
+        $assignAdminTarjetaQrAction->executeAsComensal($tarjeta);
+
+        return redirect('/admin/packing/tarjetas')
+            ->with('success', "Tarjeta {$tarjeta->numero_serie} devuelta al perfil de comensal.");
+    }
+
+    private function tarjetasQuery(string $search, mixed $estado, mixed $perfil = null): Builder
     {
         return TarjetaQr::query()
-            ->with(['asignacionActiva.trabajador.contratista'])
+            ->with(['asignacionActiva.trabajador.contratista', 'admin.centroCosto'])
             ->when($search !== '', function ($query) use ($search): void {
                 $query->where(function ($innerQuery) use ($search): void {
                     $innerQuery->where('numero_serie', 'like', "%{$search}%")
@@ -136,6 +207,9 @@ class PackingTarjetaController extends Controller
             })
             ->when($estado, function ($query, $estado): void {
                 $query->where('estado', $estado);
+            })
+            ->when($perfil, function ($query, $perfil): void {
+                $query->where('perfil', $perfil);
             })
             ->orderBy('numero_serie');
     }

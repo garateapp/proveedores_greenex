@@ -2,8 +2,10 @@
 
 namespace App\Models;
 
+use App\Enums\PerfilTarjetaQr;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 
@@ -18,15 +20,28 @@ class TarjetaQr extends Model
         'numero_serie',
         'codigo_qr',
         'estado',
+        'perfil',
+        'admin_user_id',
         'observaciones',
     ];
 
     protected function casts(): array
     {
         return [
+            'perfil' => PerfilTarjetaQr::class,
             'created_at' => 'datetime',
             'updated_at' => 'datetime',
         ];
+    }
+
+    public function admin(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'admin_user_id');
+    }
+
+    public function esDeAdminCasino(): bool
+    {
+        return $this->perfil === PerfilTarjetaQr::AdminCasino;
     }
 
     public function asignaciones(): HasMany
@@ -44,5 +59,10 @@ class TarjetaQr extends Model
     public function marcaciones(): HasMany
     {
         return $this->hasMany(MarcacionPacking::class);
+    }
+
+    public function valesAlmuerzo(): HasMany
+    {
+        return $this->hasMany(ValeAlmuerzo::class);
     }
 }

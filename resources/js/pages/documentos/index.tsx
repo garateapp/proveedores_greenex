@@ -350,7 +350,10 @@ export default function DocumentosIndex({
         });
     };
 
-    const approveDocumento = (id: number, kind: 'documento' | 'trabajador'): void => {
+    const approveDocumento = (
+        id: number,
+        kind: 'documento' | 'trabajador',
+    ): void => {
         const url =
             kind === 'trabajador'
                 ? `/documentos-trabajadores/${id}/approve`
@@ -358,7 +361,10 @@ export default function DocumentosIndex({
         router.post(url, {}, { preserveScroll: true });
     };
 
-    const openRejectDialog = (id: number, kind: 'documento' | 'trabajador'): void => {
+    const openRejectDialog = (
+        id: number,
+        kind: 'documento' | 'trabajador',
+    ): void => {
         setRejectTarget({ id, kind });
         setMotivoRechazo('');
         setRejectError('');
@@ -371,7 +377,9 @@ export default function DocumentosIndex({
 
         const motivo = motivoRechazo.trim();
         if (motivo.length < 5) {
-            setRejectError('Ingresa un motivo de rechazo válido (mínimo 5 caracteres).');
+            setRejectError(
+                'Ingresa un motivo de rechazo válido (mínimo 5 caracteres).',
+            );
             return;
         }
 
@@ -392,7 +400,10 @@ export default function DocumentosIndex({
                 },
                 onError: (errors) => {
                     const firstError = Object.values(errors)[0];
-                    if (typeof firstError === 'string' && firstError.length > 0) {
+                    if (
+                        typeof firstError === 'string' &&
+                        firstError.length > 0
+                    ) {
                         setRejectError(firstError);
                     }
                 },
@@ -1092,58 +1103,58 @@ export default function DocumentosIndex({
                                                         >
                                                             <Eye className="size-4" />
                                                         </Button>
-<Button
+                                                        <Button
+                                                            variant="ghost"
+                                                            size="sm"
+                                                            asChild
+                                                        >
+                                                            <Link
+                                                                href={`/documentos-trabajadores/${documento.id}/download`}
+                                                            >
+                                                                <Download className="size-4" />
+                                                            </Link>
+                                                        </Button>
+                                                        {isAdmin &&
+                                                            (documento.estado ===
+                                                                'pendiente_validacion' ||
+                                                                documento.estado ===
+                                                                    'rechazado') && (
+                                                                <Button
                                                                     variant="ghost"
                                                                     size="sm"
-                                                                    asChild
+                                                                    type="button"
+                                                                    onClick={() =>
+                                                                        approveDocumento(
+                                                                            documento.id,
+                                                                            'trabajador',
+                                                                        )
+                                                                    }
+                                                                    className="text-[var(--brand-green)]"
                                                                 >
-                                                                    <Link
-                                                                        href={`/documentos-trabajadores/${documento.id}/download`}
-                                                                    >
-                                                                        <Download className="size-4" />
-                                                                    </Link>
+                                                                    <CheckCircle className="size-4" />
                                                                 </Button>
-                                                                {isAdmin &&
-                                                                    (documento.estado ===
-                                                                        'pendiente_validacion' ||
-                                                                        documento.estado ===
-                                                                            'rechazado') && (
-                                                                        <Button
-                                                                            variant="ghost"
-                                                                            size="sm"
-                                                                            type="button"
-                                                                            onClick={() =>
-                                                                                approveDocumento(
-                                                                                    documento.id,
-                                                                                    'trabajador',
-                                                                                )
-                                                                            }
-                                                                            className="text-[var(--brand-green)]"
-                                                                        >
-                                                                            <CheckCircle className="size-4" />
-                                                                        </Button>
-                                                                    )}
-                                                                {isAdmin &&
-                                                                    (documento.estado ===
-                                                                        'pendiente_validacion' ||
-                                                                        documento.estado ===
-                                                                            'aprobado') && (
-                                                                        <Button
-                                                                            variant="ghost"
-                                                                            size="sm"
-                                                                            type="button"
-                                                                            onClick={() =>
-                                                                                openRejectDialog(
-                                                                                    documento.id,
-                                                                                    'trabajador',
-                                                                                )
-                                                                            }
-                                                                            className="text-destructive"
-                                                                        >
-                                                                            <XCircle className="size-4" />
-                                                                        </Button>
-                                                                    )}
-                                                            </div>
+                                                            )}
+                                                        {isAdmin &&
+                                                            (documento.estado ===
+                                                                'pendiente_validacion' ||
+                                                                documento.estado ===
+                                                                    'aprobado') && (
+                                                                <Button
+                                                                    variant="ghost"
+                                                                    size="sm"
+                                                                    type="button"
+                                                                    onClick={() =>
+                                                                        openRejectDialog(
+                                                                            documento.id,
+                                                                            'trabajador',
+                                                                        )
+                                                                    }
+                                                                    className="text-destructive"
+                                                                >
+                                                                    <XCircle className="size-4" />
+                                                                </Button>
+                                                            )}
+                                                    </div>
                                                 </TableCell>
                                             </TableRow>
                                         ),
@@ -1270,12 +1281,16 @@ export default function DocumentosIndex({
                     <div className="space-y-3">
                         <Textarea
                             value={motivoRechazo}
-                            onChange={(event) => setMotivoRechazo(event.target.value)}
+                            onChange={(event) =>
+                                setMotivoRechazo(event.target.value)
+                            }
                             placeholder="Ejemplo: archivo ilegible, información incompleta, período incorrecto..."
                             rows={4}
                         />
                         {rejectError && (
-                            <p className="text-sm text-destructive">{rejectError}</p>
+                            <p className="text-sm text-destructive">
+                                {rejectError}
+                            </p>
                         )}
 
                         <div className="flex justify-end gap-2">
@@ -1290,7 +1305,11 @@ export default function DocumentosIndex({
                             >
                                 Cancelar
                             </Button>
-                            <Button type="button" variant="destructive" onClick={submitReject}>
+                            <Button
+                                type="button"
+                                variant="destructive"
+                                onClick={submitReject}
+                            >
                                 Confirmar rechazo
                             </Button>
                         </div>

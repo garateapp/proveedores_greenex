@@ -1,5 +1,7 @@
 <?php
 
+use App\Exceptions\GaratePassApiException;
+use App\Http\Middleware\EnsureGaratePassToken;
 use App\Http\Middleware\EnsureUserIsAdmin;
 use App\Http\Middleware\HandleAppearance;
 use App\Http\Middleware\HandleInertiaRequests;
@@ -28,8 +30,11 @@ return Application::configure(basePath: dirname(__DIR__))
 
         $middleware->alias([
             'admin' => EnsureUserIsAdmin::class,
+            'garatepass' => EnsureGaratePassToken::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
-        //
+        $exceptions->render(function (GaratePassApiException $exception) {
+            return $exception->render();
+        });
     })->create();

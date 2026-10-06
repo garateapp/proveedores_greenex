@@ -2,6 +2,7 @@
 
 namespace App\Actions\Packing;
 
+use App\Enums\PerfilTarjetaQr;
 use App\Models\TarjetaQr;
 use App\Models\TarjetaQrAsignacion;
 use App\Models\Trabajador;
@@ -21,7 +22,13 @@ class AssignTarjetaQrAction
     ): TarjetaQrAsignacion {
         if (in_array($tarjeta->estado, ['bloqueada', 'baja'], true)) {
             throw ValidationException::withMessages([
-                'tarjeta' => 'La tarjeta seleccionada no se puede asignar.',
+                'tarjeta_id' => 'La tarjeta seleccionada no se puede asignar.',
+            ]);
+        }
+
+        if ($tarjeta->perfil?->value !== PerfilTarjetaQr::Comensal->value) {
+            throw ValidationException::withMessages([
+                'tarjeta_id' => 'Solo las tarjetas de perfil comensal se asignan a trabajadores. Devuélvela al perfil de comensal o usa el perfil de administrador.',
             ]);
         }
 

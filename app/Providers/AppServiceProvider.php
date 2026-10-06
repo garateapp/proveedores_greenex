@@ -3,6 +3,8 @@
 namespace App\Providers;
 
 use App\Models\AuditLog;
+use App\Models\Correlativo;
+use App\Models\IdempotencyKey;
 use App\Models\TipoDocumento;
 use App\Observers\AuditableObserver;
 use App\Policies\TipoDocumentoPolicy;
@@ -31,6 +33,20 @@ class AppServiceProvider extends ServiceProvider
         $this->registerAuditableObservers();
     }
 
+    /**
+     * Modelos que existen solo para sostener la mecánica de GaratePass y cuya
+     * traza no aporta nada: el correlativo se actualiza en cada vale emitido y
+     * la clave de idempotencia se borra a las 24 horas. Auditarlos llenaría
+     * audit_logs de filas que nadie va a consultar.
+     *
+     * @var list<class-string>
+     */
+    private array $modelosSinAuditoria = [
+        AuditLog::class,
+        Correlativo::class,
+        IdempotencyKey::class,
+    ];
+
     private function registerAuditableObservers(): void
     {
         $modelFiles = File::files(app_path('Models'));
@@ -46,7 +62,7 @@ class AppServiceProvider extends ServiceProvider
                 continue;
             }
 
-            if ($className === AuditLog::class) {
+            if (in_array($className, $this->modelosSinAuditoria, true)) {
                 continue;
             }
 

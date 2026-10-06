@@ -128,11 +128,20 @@ Route::middleware(['auth', 'verified'])->group(function () {
             Route::get('tarjetas/export', [PackingTarjetaController::class, 'export'])->name('tarjetas.export');
             Route::post('tarjetas', [PackingTarjetaController::class, 'store'])->name('tarjetas.store');
             Route::post('tarjetas/{tarjeta}/asignaciones', [PackingTarjetaAsignacionController::class, 'store'])->name('tarjetas.asignaciones.store');
+            Route::post('tarjetas/{tarjeta}/administrador', [PackingTarjetaController::class, 'assignAdmin'])->name('tarjetas.administrador.store');
+            Route::delete('tarjetas/{tarjeta}/administrador', [PackingTarjetaController::class, 'revokeAdmin'])->name('tarjetas.administrador.destroy');
             Route::get('marcaciones', [PackingMarcacionController::class, 'index'])->name('marcaciones.index');
             Route::get('asistencia-reporte', [PackingAttendanceReportController::class, 'index'])->name('asistencia-reporte.index');
             Route::get('asistencia-reporte/export', [PackingAttendanceReportController::class, 'export'])->name('asistencia-reporte.export');
             Route::post('sync', [PackingSyncController::class, 'store'])->name('sync.store');
         });
+
+        // GaratePass: catálogos y consulta de vales
+        // El alta y la edición ocurren en un diálogo sobre el listado, por eso
+        // no existen páginas create/edit propias.
+        Route::resource('centros-costo', \App\Http\Controllers\Admin\CentroCostoController::class, ['except' => ['show', 'create', 'edit']])
+            ->parameters(['centros-costo' => 'centroCosto']);
+        Route::get('garatepass/vales-lote', [\App\Http\Controllers\Admin\ValeLoteController::class, 'index'])->name('garatepass.vales-lote.index');
 
         Route::post('turnos/clone', [TurnoController::class, 'cloneFromDate'])->name('turnos.clone');
         Route::resource('turnos', TurnoController::class)

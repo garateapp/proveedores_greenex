@@ -3,6 +3,10 @@
 use App\Http\Controllers\Api\ActivityLogController;
 use App\Http\Controllers\Api\AsistenciaQrController;
 use App\Http\Controllers\Api\ControlAccessLogIngestController;
+use App\Http\Controllers\Api\TicketBatchController;
+use App\Http\Controllers\Api\TicketRedeemController;
+use App\Http\Controllers\Api\TicketScanController;
+use App\Http\Controllers\Api\TicketValidateController;
 use App\Http\Controllers\Api\UbicacionController;
 use Illuminate\Support\Facades\Route;
 
@@ -37,5 +41,23 @@ Route::prefix('v1')->group(function () {
         Route::get('/activity-logs/summary', [ActivityLogController::class, 'summary']);
         Route::get('/activity-logs/navigation-history', [ActivityLogController::class, 'navigationHistory']);
         Route::get('/activity-logs/{activityLog}', [ActivityLogController::class, 'show']);
+    });
+
+    /*
+    |---------------------------------------------------------------------------
+    | GaratePass — emisión y validación de vales de almuerzo
+    |---------------------------------------------------------------------------
+    |
+    | Autenticadas con el token compartido de la app (Authorization: Bearer).
+    | El token identifica a la aplicación, no a una persona: cada endpoint
+    | resuelve la identidad de quien opera a partir del QR escaneado.
+    |
+    */
+
+    Route::middleware('garatepass')->prefix('tickets')->group(function () {
+        Route::post('/scan', TicketScanController::class);
+        Route::post('/batch', TicketBatchController::class);
+        Route::post('/validate', TicketValidateController::class);
+        Route::post('/redeem', TicketRedeemController::class);
     });
 });

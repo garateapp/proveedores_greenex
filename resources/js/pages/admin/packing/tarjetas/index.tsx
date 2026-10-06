@@ -32,7 +32,9 @@ import {
     Download,
     Plus,
     Search,
+    ShieldCheck,
     SquareArrowOutUpRight,
+    UserRoundX,
 } from 'lucide-react';
 import { useState } from 'react';
 
@@ -48,11 +50,23 @@ interface TrabajadorOption {
     contratista: string | null;
 }
 
+interface AdministradorOption {
+    id: number;
+    nombre: string;
+    centro_costo: string | null;
+}
+
 interface TarjetaQrItem {
     id: number;
     numero_serie: string;
     codigo_qr: string;
     estado: string;
+    perfil: 'COMENSAL' | 'ADMIN_CASINO';
+    administrador: {
+        id: number;
+        nombre: string;
+        centro_costo: string | null;
+    } | null;
     observaciones: string | null;
     trabajador_actual: {
         id: string;
@@ -65,11 +79,14 @@ interface TarjetaQrItem {
 interface Props {
     tarjetas: TarjetaQrItem[];
     trabajadores: TrabajadorOption[];
+    administradores: AdministradorOption[];
     filters: {
         search?: string;
         estado?: string | null;
+        perfil?: string | null;
     };
     estados: EstadoOption[];
+    perfiles: EstadoOption[];
 }
 
 function estadoVariant(estado: string) {
@@ -88,11 +105,15 @@ function estadoVariant(estado: string) {
 export default function PackingTarjetasIndex({
     tarjetas,
     trabajadores,
+    administradores,
     filters,
     estados,
+    perfiles,
 }: Props) {
     const [search, setSearch] = useState(filters.search ?? '');
     const [estado, setEstado] = useState(filters.estado ?? 'all');
+    const [perfil, setPerfil] = useState(filters.perfil ?? 'all');
+    const [showAdminDialog, setShowAdminDialog] = useState(false);
     const exportQuery = new URLSearchParams();
 
     if (search) {
@@ -103,7 +124,22 @@ export default function PackingTarjetasIndex({
         exportQuery.set('estado', estado);
     }
 
+    if (perfil !== 'all') {
+        exportQuery.set('perfil', perfil);
+    }
+
     const exportHref = `/admin/packing/tarjetas/export${exportQuery.toString() ? `?${exportQuery.toString()}` : ''}`;
+
+    /**
+     * Solo las tarjetas comensales pueden pasar a un trabajador: un QR de
+     * administrador emite vales de lote y jamás debe quedar asignado a una
+     * persona. El backend lo vuelve a validar igual.
+     */
+    const tarjetasAsignables = tarjetas.filter(
+        (tarjeta) =>
+            tarjeta.perfil === 'COMENSAL' &&
+            !['bloqueada', 'baja'].includes(tarjeta.estado),
+    );
 
     const createForm = useForm({
         numero_serie: '',
@@ -113,9 +149,15 @@ export default function PackingTarjetasIndex({
     });
 
     const assignForm = useForm({
-        tarjeta_id: tarjetas[0]?.id.toString() ?? '',
+        tarjeta_id: tarjetasAsignables[0]?.id.toString() ?? '',
         trabajador_id: trabajadores[0]?.id ?? '',
         asignada_en: new Date().toISOString().slice(0, 16),
+        observaciones: '',
+    });
+
+    const adminForm = useForm({
+        tarjeta_id: '',
+        admin_user_id: '',
         observaciones: '',
     });
 
@@ -125,6 +167,7 @@ export default function PackingTarjetasIndex({
             {
                 search: search || undefined,
                 estado: estado === 'all' ? undefined : estado,
+                perfil: perfil === 'all' ? undefined : perfil,
             },
             { preserveState: true, preserveScroll: true },
         );
@@ -150,6 +193,44 @@ export default function PackingTarjetasIndex({
                 onSuccess: () => assignForm.reset('observaciones'),
             },
         );
+    };
+
+    const tarjetasConvertibles = tarjetas.filter(
+        (tarjeta) => tarjeta.estado !== 'bloqueada' && tarjeta.estado !== 'baja',
+    );
+
+    const openAdminDialog = (tarjetaId: string) => {
+        adminForm.setData({ tarjeta_id: tarjetaId, admin_user_id: '', observaciones: '' });
+        adminForm.clearErrors();
+        setShowAdminDialog(true);
+    };
+
+    const submitAdmin = () => {
+        if (!adminForm.data.tarjeta_id || !adminForm.data.admin_user_id) {
+            return;
+        }
+
+        adminForm.post(
+            `/admin/packing/tarjetas/${adminForm.data.tarjeta_id}/administrador`,
+            {
+                preserveScroll: true,
+                onSuccess: () => setShowAdminDialog(false),
+            },
+        );
+    };
+
+    const revokeAdmin = (tarjeta: TarjetaQrItem) => {
+        if (
+            !confirm(
+                `¿Devolver la tarjeta ${tarjeta.numero_serie} al perfil de comensal? Dejará de emitir vales de lote.`,
+            )
+        ) {
+            return;
+        }
+
+        router.delete(`/admin/packing/tarjetas/${tarjeta.id}/administrador`, {
+            preserveScroll: true,
+        });
     };
 
     return (
@@ -291,7 +372,7 @@ export default function PackingTarjetasIndex({
                             <div className="space-y-2">
                                 <Label htmlFor="tarjeta_id">Tarjeta</Label>
                                 <Combobox
-                                    options={tarjetas.map((tarjeta) => ({
+                                    options={tarjetasAsignables.map((tarjeta) => ({
                                         value: tarjeta.id.toString(),
                                         label: `${tarjeta.numero_serie} · ${tarjeta.estado}`,
                                         searchValue: `${tarjeta.numero_serie} ${tarjeta.estado}`,
@@ -302,9 +383,15 @@ export default function PackingTarjetasIndex({
                                     }
                                     placeholder="Seleccione una tarjeta"
                                     searchPlaceholder="Buscar tarjeta por número de serie..."
-                                    emptyMessage="No se encontraron tarjetas."
+                                    emptyMessage="No hay tarjetas comensales disponibles para asignar."
                                 />
                             </div>
+
+                            {assignForm.errors.tarjeta_id && (
+                                <p className="text-sm text-destructive">
+                                    {assignForm.errors.tarjeta_id}
+                                </p>
+                            )}
 
                             <div className="space-y-2">
                                 <Label htmlFor="trabajador_id">
@@ -386,6 +473,110 @@ export default function PackingTarjetasIndex({
 
                 <Card>
                     <CardHeader>
+                        <CardTitle>QR de administrador</CardTitle>
+                        <CardDescription>
+                            Convierte una tarjeta en el código que permite emitir
+                            vales de lote desde la app. Cierra la asignación de
+                            trabajador si tenía una.
+                        </CardDescription>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                        <div className="space-y-2">
+                            <Label htmlFor="admin_tarjeta_id">Tarjeta</Label>
+                            <Combobox
+                                options={tarjetasConvertibles.map((tarjeta) => ({
+                                    value: tarjeta.id.toString(),
+                                    label: `${tarjeta.numero_serie} · ${
+                                        tarjeta.perfil === 'ADMIN_CASINO'
+                                            ? 'Ya es de administrador'
+                                            : tarjeta.estado
+                                    }`,
+                                    searchValue: tarjeta.numero_serie,
+                                }))}
+                                    value={adminForm.data.tarjeta_id}
+                                    onValueChange={(value) =>
+                                        adminForm.setData('tarjeta_id', value)
+                                    }
+                                placeholder="Seleccione una tarjeta"
+                                searchPlaceholder="Buscar tarjeta por número de serie..."
+                                emptyMessage="No se encontraron tarjetas."
+                            />
+                        </div>
+
+                        <div className="grid gap-4 md:grid-cols-2">
+                            <div className="space-y-2">
+                                <Label htmlFor="admin_user_id">
+                                    Administrador
+                                </Label>
+                                <Select
+                                    value={adminForm.data.admin_user_id}
+                                    onValueChange={(value) =>
+                                        adminForm.setData('admin_user_id', value)
+                                    }
+                                >
+                                    <SelectTrigger id="admin_user_id">
+                                        <SelectValue placeholder="Seleccione un administrador" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        {administradores.map((admin) => (
+                                            <SelectItem
+                                                key={admin.id}
+                                                value={admin.id.toString()}
+                                            >
+                                                {admin.nombre}
+                                                {admin.centro_costo
+                                                    ? ` · ${admin.centro_costo}`
+                                                    : ''}
+                                            </SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                                {adminForm.errors.admin_user_id && (
+                                    <p className="text-sm text-destructive">
+                                        {adminForm.errors.admin_user_id}
+                                    </p>
+                                )}
+                            </div>
+                            <div className="space-y-2">
+                                <Label htmlFor="admin_observaciones">
+                                    Observaciones
+                                </Label>
+                                <Input
+                                    id="admin_observaciones"
+                                    value={adminForm.data.observaciones}
+                                    onChange={(event) =>
+                                        adminForm.setData(
+                                            'observaciones',
+                                            event.target.value,
+                                        )
+                                    }
+                                    placeholder="Uso interno"
+                                />
+                            </div>
+                        </div>
+
+                        <Button
+                            onClick={submitAdmin}
+                            disabled={
+                                adminForm.processing ||
+                                !adminForm.data.tarjeta_id ||
+                                !adminForm.data.admin_user_id
+                            }
+                        >
+                            <ShieldCheck className="mr-2 h-4 w-4" />
+                            Asignar como administrador
+                        </Button>
+
+                        {adminForm.errors.tarjeta_id && (
+                            <p className="text-sm text-destructive">
+                                {adminForm.errors.tarjeta_id}
+                            </p>
+                        )}
+                    </CardContent>
+                </Card>
+
+                <Card>
+                    <CardHeader>
                         <CardTitle>Inventario</CardTitle>
                         <CardDescription>
                             Consulte el estado actual y la última asignación
@@ -393,7 +584,7 @@ export default function PackingTarjetasIndex({
                         </CardDescription>
                     </CardHeader>
                     <CardContent className="space-y-4">
-                        <div className="grid gap-4 md:grid-cols-[1fr,220px,140px] xl:grid-cols-[1fr,220px,140px,220px]">
+                        <div className="grid gap-4 md:grid-cols-[1fr,180px,180px,140px] xl:grid-cols-[1fr,180px,180px,140px,220px]">
                             <div className="space-y-2">
                                 <Label htmlFor="search">Buscar</Label>
                                 <Input
@@ -432,6 +623,30 @@ export default function PackingTarjetasIndex({
                                     </SelectContent>
                                 </Select>
                             </div>
+                            <div className="space-y-2">
+                                <Label htmlFor="perfil_filter">Perfil</Label>
+                                <Select
+                                    value={perfil}
+                                    onValueChange={setPerfil}
+                                >
+                                    <SelectTrigger id="perfil_filter">
+                                        <SelectValue placeholder="Todos" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="all">
+                                            Todos
+                                        </SelectItem>
+                                        {perfiles.map((perfilOption) => (
+                                            <SelectItem
+                                                key={perfilOption.value}
+                                                value={perfilOption.value}
+                                            >
+                                                {perfilOption.label}
+                                            </SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                            </div>
                             <div className="flex items-end">
                                 <Button
                                     className="w-full"
@@ -460,16 +675,20 @@ export default function PackingTarjetasIndex({
                                 <TableRow>
                                     <TableHead>Serie</TableHead>
                                     <TableHead>Código QR</TableHead>
+                                    <TableHead>Perfil</TableHead>
                                     <TableHead>Estado</TableHead>
                                     <TableHead>Asignación activa</TableHead>
                                     <TableHead>Observaciones</TableHead>
+                                    <TableHead className="text-right">
+                                        Acciones
+                                    </TableHead>
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
                                 {tarjetas.length === 0 ? (
                                     <TableRow>
                                         <TableCell
-                                            colSpan={5}
+                                            colSpan={7}
                                             className="text-center"
                                         >
                                             No hay tarjetas registradas.
@@ -485,6 +704,18 @@ export default function PackingTarjetasIndex({
                                                 {tarjeta.codigo_qr}
                                             </TableCell>
                                             <TableCell>
+                                                {tarjeta.perfil ===
+                                                'ADMIN_CASINO' ? (
+                                                    <Badge variant="default">
+                                                        Administrador
+                                                    </Badge>
+                                                ) : (
+                                                    <Badge variant="outline">
+                                                        Comensal
+                                                    </Badge>
+                                                )}
+                                            </TableCell>
+                                            <TableCell>
                                                 <Badge
                                                     variant={estadoVariant(
                                                         tarjeta.estado,
@@ -494,7 +725,25 @@ export default function PackingTarjetasIndex({
                                                 </Badge>
                                             </TableCell>
                                             <TableCell>
-                                                {tarjeta.trabajador_actual ? (
+                                                {tarjeta.perfil ===
+                                                'ADMIN_CASINO' ? (
+                                                    <div className="flex flex-col text-sm">
+                                                        <span className="font-medium">
+                                                            {
+                                                                tarjeta
+                                                                    .administrador
+                                                                    ?.nombre ??
+                                                                'Sin administrador'
+                                                            }
+                                                        </span>
+                                                        <span className="text-muted-foreground">
+                                                            {tarjeta
+                                                                .administrador
+                                                                ?.centro_costo ??
+                                                                'sin centro de costo'}
+                                                        </span>
+                                                    </div>
+                                                ) : tarjeta.trabajador_actual ? (
                                                     <div className="flex flex-col text-sm">
                                                         <span className="font-medium">
                                                             {
@@ -525,6 +774,21 @@ export default function PackingTarjetasIndex({
                                             </TableCell>
                                             <TableCell>
                                                 {tarjeta.observaciones || '-'}
+                                            </TableCell>
+                                            <TableCell className="text-right">
+                                                {tarjeta.perfil ===
+                                                    'ADMIN_CASINO' && (
+                                                    <Button
+                                                        variant="ghost"
+                                                        size="sm"
+                                                        title="Devolver al perfil de comensal"
+                                                        onClick={() =>
+                                                            revokeAdmin(tarjeta)
+                                                        }
+                                                    >
+                                                        <UserRoundX className="h-4 w-4" />
+                                                    </Button>
+                                                )}
                                             </TableCell>
                                         </TableRow>
                                     ))

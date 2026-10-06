@@ -30,6 +30,7 @@ class Trabajador extends Model
         'nombre',
         'apellido',
         'contratista_id',
+        'centro_costo_id',
         'estado',
         'email',
         'telefono',
@@ -53,6 +54,17 @@ class Trabajador extends Model
     public function contratista(): BelongsTo
     {
         return $this->belongsTo(Contratista::class);
+    }
+
+    /**
+     * Get the centro de costo that owns this trabajador.
+     *
+     * Es opcional a propósito: muchos trabajadores no tienen centro asignado
+     * y la app debe poder emitirles vale igual.
+     */
+    public function centroCosto(): BelongsTo
+    {
+        return $this->belongsTo(CentroCosto::class);
     }
 
     /**
@@ -83,6 +95,27 @@ class Trabajador extends Model
         return $this->hasOne(TarjetaQrAsignacion::class)
             ->whereNull('desasignada_en')
             ->latestOfMany('asignada_en');
+    }
+
+    public function valesAlmuerzo(): HasMany
+    {
+        return $this->hasMany(ValeAlmuerzo::class);
+    }
+
+    /**
+     * Get the vale más reciente emitido dentro de la ventana activa.
+     *
+     * La ventana se keyea por trabajador y no por tarjeta: si se keyeara por
+     * tarjeta, al reasignarla el nuevo trabajador heredaría el enfriamiento
+     * del anterior, que no le pertenece.
+     */
+    public function ultimoValeEnVentana(int $ventanaHoras): ?ValeAlmuerzo
+    {
+        return $this->valesAlmuerzo()
+            ->where('emitido_en', '>', now()->subHours($ventanaHoras))
+            ->latest('emitido_en')
+            ->latest('id')
+            ->first();
     }
 
     /**
@@ -165,5 +198,31 @@ class Trabajador extends Model
         $rut = str_replace(['.', '-'], '', $documento);
 
         return substr($rut, 0, -1);
+    }
+
+    /**
+     * Formatea el RUT con puntos y guion para mostrarlo impreso: 123456789
+     * se vuelve 12.345.678-9.
+     */
+    public function getRutFormateadoAttribute(): string
+    {
+        $documento = str_replace('.', '', (string) $this->documento);
+
+        if (! str_contains($documento, '-')) {
+            return $documento;
+        }
+
+        [$cuerpo, $dv] = explode('-', $documento, 2);
+
+        $digitos = strlen($cuerpo);
+        $primero = $digitos - (3 * intdiv($digitos - 1, 3));
+
+        $grupos = [substr($cuerpo, 0, $primero)];
+
+        for ($i = $primero; $i < $digitos; $i += 3) {
+            $grupos[] = substr($cuerpo, $i, 3);
+        }
+
+        return implode('.', $grupos).'-'.$dv;
     }
 }

@@ -25,9 +25,11 @@ import {
     FileText,
     LayoutGrid,
     MapPin,
+    QrCode,
     Settings,
     UploadCloud,
     Users,
+    UtensilsCrossed,
     Wrench,
 } from 'lucide-react';
 import AppLogo from './app-logo';
@@ -95,7 +97,17 @@ export function AppSidebar() {
               {
                   title: 'Tarjetas QR',
                   href: '/admin/packing/tarjetas',
-                  icon: Clock,
+                  icon: QrCode,
+              },
+              {
+                  title: 'Centros de Costo',
+                  href: '/admin/centros-costo',
+                  icon: Building2,
+              },
+              {
+                  title: 'Vales de Lote',
+                  href: '/admin/garatepass/vales-lote',
+                  icon: UtensilsCrossed,
               },
               {
                   title: 'Auditoría',

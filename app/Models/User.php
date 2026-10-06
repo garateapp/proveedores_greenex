@@ -26,6 +26,7 @@ class User extends Authenticatable
         'password',
         'role',
         'contratista_id',
+        'centro_costo_id',
         'is_active',
     ];
 
@@ -63,6 +64,23 @@ class User extends Authenticatable
     public function contratista(): BelongsTo
     {
         return $this->belongsTo(Contratista::class);
+    }
+
+    /**
+     * Get the centro de costo assigned to this user.
+     */
+    public function centroCosto(): BelongsTo
+    {
+        return $this->belongsTo(CentroCosto::class);
+    }
+
+    /**
+     * Check if the user is an administrator of the casino, the only role
+     * authorized to emit lots of lunch tickets.
+     */
+    public function puedeEmitirLoteVales(): bool
+    {
+        return $this->role === UserRole::Admin;
     }
 
     /**

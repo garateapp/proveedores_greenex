@@ -605,8 +605,10 @@ export default function DocumentosAprobaciones({
                                                         <Eye className="size-4" />
                                                     </Button>
                                                     {isAdmin &&
-                                                        documento.estado ===
-                                                            'pendiente_validacion' && (
+                                                        (documento.estado ===
+                                                            'pendiente_validacion' ||
+                                                            documento.estado ===
+                                                                'rechazado') && (
                                                             <>
                                                                 <Button
                                                                     variant="ghost"
@@ -622,20 +624,23 @@ export default function DocumentosAprobaciones({
                                                                 >
                                                                     <CheckCircle className="size-4" />
                                                                 </Button>
-                                                                <Button
-                                                                    variant="ghost"
-                                                                    size="sm"
-                                                                    type="button"
-                                                                    onClick={() =>
-                                                                        openRejectDialog(
-                                                                            documento,
-                                                                            'documento',
-                                                                        )
-                                                                    }
-                                                                    className="text-destructive"
-                                                                >
-                                                                    <XCircle className="size-4" />
-                                                                </Button>
+                                                                {documento.estado ===
+                                                                    'pendiente_validacion' && (
+                                                                    <Button
+                                                                        variant="ghost"
+                                                                        size="sm"
+                                                                        type="button"
+                                                                        onClick={() =>
+                                                                            openRejectDialog(
+                                                                                documento,
+                                                                                'documento',
+                                                                            )
+                                                                        }
+                                                                        className="text-destructive"
+                                                                    >
+                                                                        <XCircle className="size-4" />
+                                                                    </Button>
+                                                                )}
                                                             </>
                                                         )}
                                                     <Button
@@ -810,8 +815,10 @@ export default function DocumentosAprobaciones({
                                                             <Eye className="size-4" />
                                                         </Button>
                                                         {isAdmin &&
-                                                            documento.estado ===
-                                                                'pendiente_validacion' && (
+                                                            (documento.estado ===
+                                                                'pendiente_validacion' ||
+                                                                documento.estado ===
+                                                                    'rechazado') && (
                                                                 <>
                                                                     <Button
                                                                         variant="ghost"
@@ -827,20 +834,23 @@ export default function DocumentosAprobaciones({
                                                                     >
                                                                         <CheckCircle className="size-4" />
                                                                     </Button>
-                                                                    <Button
-                                                                        variant="ghost"
-                                                                        size="sm"
-                                                                        type="button"
-                                                                        onClick={() =>
-                                                                            openRejectDialog(
-                                                                                documento,
-                                                                                'trabajador',
-                                                                            )
-                                                                        }
-                                                                        className="text-destructive"
-                                                                    >
-                                                                        <XCircle className="size-4" />
-                                                                    </Button>
+                                                                    {documento.estado ===
+                                                                        'pendiente_validacion' && (
+                                                                        <Button
+                                                                            variant="ghost"
+                                                                            size="sm"
+                                                                            type="button"
+                                                                            onClick={() =>
+                                                                                openRejectDialog(
+                                                                                    documento,
+                                                                                    'trabajador',
+                                                                                )
+                                                                            }
+                                                                            className="text-destructive"
+                                                                        >
+                                                                            <XCircle className="size-4" />
+                                                                        </Button>
+                                                                    )}
                                                                 </>
                                                             )}
                                                         <Button
