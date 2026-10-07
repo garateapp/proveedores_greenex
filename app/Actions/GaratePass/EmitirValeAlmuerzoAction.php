@@ -11,6 +11,7 @@ use App\Models\Trabajador;
 use App\Models\User;
 use App\Models\ValeAlmuerzo;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Log;
 
 /**
  * Emisión de vales a partir de un QR escaneado.
@@ -105,7 +106,13 @@ class EmitirValeAlmuerzoAction
             'centro_costo_id' => $trabajador->centro_costo_id,
             'emitido_en' => $emitidoEn,
         ]);
+        Log::info('Vale de almuerzo emitido', [
+            'vale_id' => $vale->id,
+            'trabajador' => $trabajador,
+            'tarjeta_qr_id' => $tarjeta->id,
+            'asignacion_id' => $asignacion->id,
 
+        ]);
         return [
             'profile' => PerfilTarjetaQr::Comensal->value,
             'ticket' => [
@@ -116,7 +123,7 @@ class EmitirValeAlmuerzoAction
                 'contractor' => $trabajador->contratista?->razon_social,
                 'costCenter' => $trabajador->centroCosto?->codigo ?? $this->textoSinCentroCosto(),
                 'costCenterNeedsImputation' => $trabajador->centro_costo_id === null,
-                'hypocaloricDiet' => (bool) $trabajador->dieta_hipocalorica,
+                'hypocaloricDiet' => (bool) $trabajador->r,
                 'issuedAt' => $emitidoEn->toIso8601String(),
             ],
         ];
