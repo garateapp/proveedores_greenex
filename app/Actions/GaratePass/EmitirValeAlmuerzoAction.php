@@ -11,7 +11,7 @@ use App\Models\Trabajador;
 use App\Models\User;
 use App\Models\ValeAlmuerzo;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Log;
+use Illuminate\Support\Facades\Log;
 
 /**
  * Emisión de vales a partir de un QR escaneado.
