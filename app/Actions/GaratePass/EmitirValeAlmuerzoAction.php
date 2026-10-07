@@ -123,7 +123,7 @@ class EmitirValeAlmuerzoAction
                 'contractor' => $trabajador->contratista?->razon_social,
                 'costCenter' => $trabajador->centroCosto?->codigo ?? $this->textoSinCentroCosto(),
                 'costCenterNeedsImputation' => $trabajador->centro_costo_id === null,
-                'hypocaloricDiet' => (bool) $trabajador->r,
+                'hypocaloricDiet' => (bool) $trabajador->dieta_hipocalorica,
                 'issuedAt' => $emitidoEn->toIso8601String(),
             ],
         ];
