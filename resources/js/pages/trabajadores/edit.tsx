@@ -34,6 +34,7 @@ interface Trabajador {
     estado: string;
     fecha_ingreso: string | null;
     observaciones: string | null;
+    dieta_hipocalorica: boolean;
 }
 
 interface TipoDocumentoOption {
@@ -57,7 +58,12 @@ interface Props {
     tiposDocumentos: TipoDocumentoOption[];
     documentosTrabajador: DocumentoTrabajador[];
     sinFaenaActiva: boolean;
-    contratistas: { value: number; label: string }[];
+    contratistas: {
+        value: number;
+        label: string;
+        dieta_hipocalorica?: boolean;
+    }[];
+    dietaHipocaloricaPermitida: boolean | null;
     faenasDisponibles: {
         id: number;
         nombre: string;
@@ -78,6 +84,7 @@ export default function TrabajadorEdit({
     documentosTrabajador,
     sinFaenaActiva,
     contratistas,
+    dietaHipocaloricaPermitida,
     faenasDisponibles,
     faenaIdsAsignadas,
 }: Props) {
@@ -93,7 +100,15 @@ export default function TrabajadorEdit({
         observaciones: trabajador.observaciones ?? '',
         contratista_id: trabajador.contratista_id?.toString() ?? '',
         faena_ids: faenaIdsAsignadas,
+        dieta_hipocalorica: trabajador.dieta_hipocalorica ?? false,
     });
+
+    const dietaHipocaloricaHabilitada = isAdmin
+        ? (contratistas.find(
+              (contratista) =>
+                  contratista.value.toString() === data.contratista_id,
+          )?.dieta_hipocalorica ?? false)
+        : (dietaHipocaloricaPermitida ?? false);
 
     const uploadedTipoIds = useMemo(
         () =>
@@ -284,9 +299,22 @@ export default function TrabajadorEdit({
                                         </Label>
                                         <Select
                                             value={data.contratista_id}
-                                            onValueChange={(value) =>
-                                                setData('contratista_id', value)
-                                            }
+                                            onValueChange={(value) => {
+                                                setData('contratista_id', value);
+                                                const permitido =
+                                                    contratistas.find(
+                                                        (contratista) =>
+                                                            contratista.value.toString() ===
+                                                            value,
+                                                    )?.dieta_hipocalorica ??
+                                                    false;
+                                                if (!permitido) {
+                                                    setData(
+                                                        'dieta_hipocalorica',
+                                                        false,
+                                                    );
+                                                }
+                                            }}
                                         >
                                             <SelectTrigger id="contratista_id">
                                                 <SelectValue placeholder="Seleccione un contratista" />
@@ -339,6 +367,41 @@ export default function TrabajadorEdit({
                                         </p>
                                     )}
                                 </div>
+                                {dietaHipocaloricaHabilitada && (
+                                    <div className="space-y-2 md:col-span-2">
+                                        <label
+                                            htmlFor="dieta_hipocalorica"
+                                            className="flex items-start gap-3 rounded-lg border border-border/60 px-3 py-3"
+                                        >
+                                            <Checkbox
+                                                id="dieta_hipocalorica"
+                                                checked={
+                                                    data.dieta_hipocalorica
+                                                }
+                                                onCheckedChange={(checked) =>
+                                                    setData(
+                                                        'dieta_hipocalorica',
+                                                        checked === true,
+                                                    )
+                                                }
+                                            />
+                                            <div className="space-y-1">
+                                                <p className="text-sm font-medium text-foreground">
+                                                    Come hipocalórico
+                                                </p>
+                                                <p className="text-xs text-muted-foreground">
+                                                    Máximo 20 cupos disponibles
+                                                    para este contratista.
+                                                </p>
+                                            </div>
+                                        </label>
+                                        {errors.dieta_hipocalorica && (
+                                            <p className="text-sm text-destructive">
+                                                {errors.dieta_hipocalorica}
+                                            </p>
+                                        )}
+                                    </div>
+                                )}
                             </div>
 
                             <div className="space-y-2">

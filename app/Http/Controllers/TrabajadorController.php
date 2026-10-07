@@ -134,10 +134,11 @@ class TrabajadorController extends Controller
             $contratistas = Contratista::query()
                 ->where('estado', 'activo')
                 ->orderBy('razon_social')
-                ->get(['id', 'razon_social'])
+                ->get(['id', 'razon_social', 'rut'])
                 ->map(fn ($c) => [
                     'value' => $c->id,
                     'label' => $c->razon_social,
+                    'dieta_hipocalorica' => $this->contratistaPermiteDieta($c),
                 ]);
         }
 
@@ -153,6 +154,9 @@ class TrabajadorController extends Controller
         return Inertia::render('trabajadores/create', [
             'contratistas' => $contratistas,
             'faenasDisponibles' => $faenasDisponibles,
+            'dietaHipocaloricaPermitida' => $user->isAdmin()
+                ? null
+                : $this->contratistaPermiteDieta(Contratista::find($user->contratista_id)),
         ]);
     }
 
@@ -172,6 +176,7 @@ class TrabajadorController extends Controller
             'fecha_ingreso' => ['nullable', 'date'],
             'observaciones' => ['nullable', 'string'],
             'faena_id' => ['nullable', 'integer', 'exists:faenas,id'],
+            'dieta_hipocalorica' => ['sometimes', 'boolean'],
         ]);
 
         // Validate RUT
@@ -193,6 +198,20 @@ class TrabajadorController extends Controller
         }
 
         $contratistaId = $user->isAdmin() ? $request->input('contratista_id') : $user->contratista_id;
+
+        $dietaHipocalorica = (bool) ($validated['dieta_hipocalorica'] ?? false);
+
+        if ($dietaHipocalorica && ! $this->contratistaPermiteDieta(Contratista::find((int) $contratistaId))) {
+            $dietaHipocalorica = false;
+        }
+
+        if ($dietaHipocalorica) {
+            $dietaError = $this->validarCuposDietaHipocalorica((int) $contratistaId);
+
+            if ($dietaError !== null) {
+                return back()->withErrors(['dieta_hipocalorica' => $dietaError]);
+            }
+        }
 
         if (! $user->isAdmin() && ($validated['faena_id'] ?? null)) {
             $faenaBelongsToContratista = Faena::query()
@@ -217,6 +236,7 @@ class TrabajadorController extends Controller
             'fecha_ingreso' => $validated['fecha_ingreso'] ?? now(),
             'observaciones' => $validated['observaciones'] ?? null,
             'estado' => 'activo',
+            'dieta_hipocalorica' => (bool) ($validated['dieta_hipocalorica'] ?? false),
         ]);
 
         if ($validated['faena_id'] ?? null) {
@@ -285,10 +305,11 @@ class TrabajadorController extends Controller
             $contratistas = Contratista::query()
                 ->where('estado', 'activo')
                 ->orderBy('razon_social')
-                ->get(['id', 'razon_social'])
+                ->get(['id', 'razon_social', 'rut'])
                 ->map(fn (Contratista $contratista) => [
                     'value' => $contratista->id,
                     'label' => $contratista->razon_social,
+                    'dieta_hipocalorica' => $this->contratistaPermiteDieta($contratista),
                 ]);
         }
 
@@ -313,6 +334,9 @@ class TrabajadorController extends Controller
             'tiposDocumentos' => $tiposDocumentos,
             'sinFaenaActiva' => $tipoFaenaIds->isEmpty(),
             'contratistas' => $contratistas,
+            'dietaHipocaloricaPermitida' => $user->isAdmin()
+                ? null
+                : $this->contratistaPermiteDieta(Contratista::find($trabajador->contratista_id)),
             'faenasDisponibles' => $faenasDisponibles,
             'faenaIdsAsignadas' => $faenaIdsAsignadas,
             'documentosTrabajador' => $trabajador->documentosTrabajador->map(fn ($documento) => [
@@ -348,6 +372,7 @@ class TrabajadorController extends Controller
             'contratista_id' => ['nullable', 'exists:contratistas,id'],
             'faena_ids' => ['nullable', 'array'],
             'faena_ids.*' => ['integer', 'exists:faenas,id'],
+            'dieta_hipocalorica' => ['sometimes', 'boolean'],
         ]);
 
         $targetContratistaId = $trabajador->contratista_id;
@@ -359,6 +384,20 @@ class TrabajadorController extends Controller
             $targetContratistaId = (int) $user->contratista_id;
         }
 
+        $dietaHipocalorica = (bool) ($validated['dieta_hipocalorica'] ?? $trabajador->dieta_hipocalorica);
+
+        if ($dietaHipocalorica && ! $this->contratistaPermiteDieta(Contratista::find($targetContratistaId))) {
+            $dietaHipocalorica = false;
+        }
+
+        if ($dietaHipocalorica) {
+            $dietaError = $this->validarCuposDietaHipocalorica($targetContratistaId, $trabajador->id);
+
+            if ($dietaError !== null) {
+                return back()->withErrors(['dieta_hipocalorica' => $dietaError]);
+            }
+        }
+
         $trabajador->update([
             'nombre' => $validated['nombre'],
             'apellido' => $validated['apellido'],
@@ -368,6 +407,7 @@ class TrabajadorController extends Controller
             'fecha_ingreso' => $validated['fecha_ingreso'],
             'observaciones' => $validated['observaciones'],
             'contratista_id' => $targetContratistaId,
+            'dieta_hipocalorica' => $dietaHipocalorica,
         ]);
 
         $faenaIds = collect($validated['faena_ids'] ?? [])
@@ -418,6 +458,41 @@ class TrabajadorController extends Controller
         ]);
 
         return back()->with('success', 'Estado actualizado');
+    }
+
+    /**
+     * Determine si el contratista habilita la marca de dieta hipocalórica.
+     */
+    private function contratistaPermiteDieta(?Contratista $contratista): bool
+    {
+        if ($contratista === null) {
+            return false;
+        }
+
+        $rutConfigurado = preg_replace('/[^0-9kK]/', '', (string) config('garatepass.dieta_rut_contratista', ''));
+        $rutContratista = preg_replace('/[^0-9kK]/', '', $contratista->rut);
+
+        return $rutConfigurado !== '' && strcasecmp($rutContratista, $rutConfigurado) === 0;
+    }
+
+    /**
+     * Valida que queden cupos de dieta hipocalórica para el contratista.
+     */
+    private function validarCuposDietaHipocalorica(int $contratistaId, ?string $excluirTrabajadorId = null): ?string
+    {
+        $cuposMaximos = (int) config('garatepass.dieta_cupos_maximos', 20);
+
+        $ocupados = Trabajador::query()
+            ->where('contratista_id', $contratistaId)
+            ->where('dieta_hipocalorica', true)
+            ->when($excluirTrabajadorId !== null, fn ($query) => $query->where('id', '!=', $excluirTrabajadorId))
+            ->count();
+
+        if ($ocupados >= $cuposMaximos) {
+            return "Se alcanzó el máximo de {$cuposMaximos} cupos de dieta hipocalórica.";
+        }
+
+        return null;
     }
 
     /**

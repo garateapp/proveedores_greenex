@@ -2,6 +2,7 @@ import { FormEventHandler, useMemo } from 'react';
 import { Head, Link, useForm } from '@inertiajs/react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import {
@@ -18,6 +19,7 @@ import { ArrowLeft } from 'lucide-react';
 interface ContratistaOption {
     value: number;
     label: string;
+    dieta_hipocalorica?: boolean;
 }
 
 interface FaenaOption {
@@ -30,6 +32,7 @@ interface FaenaOption {
 interface Props {
     contratistas: ContratistaOption[];
     faenasDisponibles: FaenaOption[];
+    dietaHipocaloricaPermitida: boolean | null;
 }
 
 const breadcrumbs: BreadcrumbItem[] = [
@@ -37,7 +40,7 @@ const breadcrumbs: BreadcrumbItem[] = [
     { title: 'Crear', href: '/trabajadores/create' },
 ];
 
-export default function TrabajadorCreate({ contratistas, faenasDisponibles }: Props) {
+export default function TrabajadorCreate({ contratistas, faenasDisponibles, dietaHipocaloricaPermitida }: Props) {
     const { data, setData, post, processing, errors } = useForm({
         documento: '',
         nombre: '',
@@ -48,9 +51,14 @@ export default function TrabajadorCreate({ contratistas, faenasDisponibles }: Pr
         observaciones: '',
         contratista_id: contratistas[0]?.value?.toString() ?? '',
         faena_id: '',
+        dieta_hipocalorica: false,
     });
 
     const isAdmin = useMemo(() => !!contratistas.length, [contratistas.length]);
+
+    const dietaHipocaloricaHabilitada = isAdmin
+        ? (contratistas.find((c) => c.value.toString() === data.contratista_id)?.dieta_hipocalorica ?? false)
+        : (dietaHipocaloricaPermitida ?? false);
 
     const submit: FormEventHandler = (e) => {
         e.preventDefault();
@@ -162,7 +170,15 @@ export default function TrabajadorCreate({ contratistas, faenasDisponibles }: Pr
                                         <Label htmlFor="contratista_id">Contratista</Label>
                                         <Select
                                             value={data.contratista_id}
-                                            onValueChange={(value) => setData('contratista_id', value)}
+                                            onValueChange={(value) => {
+                                                setData('contratista_id', value);
+                                                const permitido =
+                                                    contratistas.find((c) => c.value.toString() === value)?.dieta_hipocalorica ??
+                                                    false;
+                                                if (!permitido) {
+                                                    setData('dieta_hipocalorica', false);
+                                                }
+                                            }}
                                         >
                                             <SelectTrigger>
                                                 <SelectValue placeholder="Seleccione un contratista" />
@@ -203,6 +219,34 @@ export default function TrabajadorCreate({ contratistas, faenasDisponibles }: Pr
                                         </Select>
                                         {errors.faena_id && (
                                             <p className="text-sm text-destructive">{errors.faena_id}</p>
+                                        )}
+                                    </div>
+                                )}
+
+                                {dietaHipocaloricaHabilitada && (
+                                    <div className="space-y-2 md:col-span-2">
+                                        <label
+                                            htmlFor="dieta_hipocalorica"
+                                            className="flex items-start gap-3 rounded-lg border border-border/60 px-3 py-3"
+                                        >
+                                            <Checkbox
+                                                id="dieta_hipocalorica"
+                                                checked={data.dieta_hipocalorica}
+                                                onCheckedChange={(checked) =>
+                                                    setData('dieta_hipocalorica', checked === true)
+                                                }
+                                            />
+                                            <div className="space-y-1">
+                                                <p className="text-sm font-medium text-foreground">
+                                                    Come hipocalórico
+                                                </p>
+                                                <p className="text-xs text-muted-foreground">
+                                                    Máximo 20 cupos disponibles para este contratista.
+                                                </p>
+                                            </div>
+                                        </label>
+                                        {errors.dieta_hipocalorica && (
+                                            <p className="text-sm text-destructive">{errors.dieta_hipocalorica}</p>
                                         )}
                                     </div>
                                 )}

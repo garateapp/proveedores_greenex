@@ -55,4 +55,19 @@ return [
 
     'texto_sin_centro_costo' => env('GARATEPASS_TEXTO_SIN_CENTRO_COSTO', '(sin centro de costo)'),
 
+    /*
+    |--------------------------------------------------------------------------
+    | Dieta hipocalórica
+    |--------------------------------------------------------------------------
+    |
+    | Solo el personal del contratista indicado puede marcar la dieta
+    | hipocalórica en su ficha, y el marcador consume un cupo limitado.
+    | El RUT se compara sin puntos y con dígito verificador.
+    |
+    */
+
+    'dieta_rut_contratista' => env('GARATEPASS_DIETA_RUT_CONTRATISTA', '76067861-9'),
+
+    'dieta_cupos_maximos' => (int) env('GARATEPASS_DIETA_CUPOS_MAXIMOS', 20),
+
 ];

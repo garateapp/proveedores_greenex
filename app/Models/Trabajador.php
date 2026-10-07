@@ -36,12 +36,14 @@ class Trabajador extends Model
         'telefono',
         'fecha_ingreso',
         'observaciones',
+        'dieta_hipocalorica',
     ];
 
     protected function casts(): array
     {
         return [
             'fecha_ingreso' => 'date',
+            'dieta_hipocalorica' => 'boolean',
             'created_at' => 'datetime',
             'updated_at' => 'datetime',
             'deleted_at' => 'datetime',
