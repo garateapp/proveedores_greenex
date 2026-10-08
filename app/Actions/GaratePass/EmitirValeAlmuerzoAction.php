@@ -74,90 +74,74 @@ class EmitirValeAlmuerzoAction
     }
 
     /**
-     * @return array{profile: string, ticket: array<string, mixed>}
+     * @return array{profile: string, tickets: array<int, array<string, mixed>>}
      */
     private function emitirParaComensal(TarjetaQr $tarjeta): array
-{
-    $asignacion = $this->asignacionVigente($tarjeta);
+    {
+        $asignacion = $this->asignacionVigente($tarjeta);
 
-    if ($asignacion === null) {
-        throw new GaratePassApiException(GaratePassErrorCode::TicketNotRegistered);
-    }
+        if ($asignacion === null) {
+            throw new GaratePassApiException(GaratePassErrorCode::TicketNotRegistered);
+        }
 
-    $trabajador = Trabajador::query()
-        ->with(['contratista', 'centroCosto'])
-        ->where('id', $asignacion->trabajador_id)
-        ->lockForUpdate()
-        ->first();
+        $trabajador = Trabajador::query()
+            ->with(['contratista', 'centroCosto'])
+            ->where('id', $asignacion->trabajador_id)
+            ->lockForUpdate()
+            ->first();
 
-    if ($trabajador === null) {
-        throw new GaratePassApiException(GaratePassErrorCode::TicketNotRegistered);
-    }
+        if ($trabajador === null) {
+            throw new GaratePassApiException(GaratePassErrorCode::TicketNotRegistered);
+        }
 
-    if (!$tarjeta->multiticket) {
-        $this->verificarVentana($trabajador);
-    }
+        if (!$tarjeta->multiticket) {
+            $this->verificarVentana($trabajador);
+        }
 
-    $emitidoEn = now();
-    $ticketsEmitidos = []; // Array para almacenar todos los tickets
+        $emitidoEn = now();
+        $ticketsEmitidos = [];
 
-    // Datos base para la creación del ValeAlmuerzo
-    $dataVale = [
-        'trabajador_id' => $trabajador->id,
-        'tarjeta_qr_id' => $tarjeta->id,
-        'asignacion_id' => $asignacion->id,
-        'contratista' => $trabajador->contratista?->razon_social,
-        'centro_costo_id' => $trabajador->centro_costo_id,
-        'emitido_en' => $emitidoEn,
-    ];
+        // 1. Determinar cuántos vales se deben emitir
+        $cantidadValesaEmitir = 1; // Por defecto, siempre se emite al menos 1
 
-    if ($trabajador->contratista->rut != '76067861-9') {
-        $cantidadValesaEmitir = Asistencia::where('contratista_id', $trabajador->contratista_id)
-            ->whereRaw('DATE(fecha_hora) = CURDATE()')
-            ->whereRaw('TIME(fecha_hora) > CURTIME() - INTERVAL 1 HOUR')
-            ->count();
+        // Usamos '?->' por seguridad en caso de que el trabajador no tenga contratista asignado
+        if ($trabajador->contratista?->rut !== '76067861-9') {
+            $asistenciasRecientes = Asistencia::where('contratista_id', $trabajador->contratista_id)
+                ->whereRaw('DATE(fecha_hora) = CURDATE()')
+                // CORREGIDO: Buscamos asistencias en la última hora, no en el futuro
+                ->whereRaw('TIME(fecha_hora) >= CURTIME() - INTERVAL 1 HOUR')
+                ->count();
 
-        if ($cantidadValesaEmitir > 0) {
-            for ($i = 0; $i < $cantidadValesaEmitir; $i++) {
-                // IMPORTANTE: Generar un token único por cada iteración
-                $dataVale['token'] = bin2hex(random_bytes(16));
-                $vale = ValeAlmuerzo::query()->create($dataVale);
-
-                $ticketsEmitidos[] = $this->formatearTicket($tarjeta, $trabajador, $vale, $emitidoEn);
+            if ($asistenciasRecientes > 0) {
+                $cantidadValesaEmitir = $asistenciasRecientes;
             }
         }
-    } else {
-        $dataVale['token'] = bin2hex(random_bytes(16));
-        $vale = ValeAlmuerzo::query()->create($dataVale);
 
-        $ticketsEmitidos[] = $this->formatearTicket($tarjeta, $trabajador, $vale, $emitidoEn);
+        // 2. Datos base que se repiten en todos los vales
+        $dataValeBase = [
+            'trabajador_id' => $trabajador->id,
+            'tarjeta_qr_id' => $tarjeta->id,
+            'asignacion_id' => $asignacion->id,
+            'contratista' => $trabajador->contratista?->razon_social,
+            'centro_costo_id' => $trabajador->centro_costo_id,
+            'emitido_en' => $emitidoEn,
+        ];
+
+        // 3. Generar los vales y formatear los tickets en un solo bucle limpio
+        for ($i = 0; $i < $cantidadValesaEmitir; $i++) {
+            $dataValeBase['token'] = bin2hex(random_bytes(16)); // Token único por iteración
+
+            $vale = ValeAlmuerzo::query()->create($dataValeBase);
+
+            $ticketsEmitidos[] = $this->formatearTicket($tarjeta, $trabajador, $vale, $emitidoEn);
+        }
+
+        return [
+            'profile' => PerfilTarjetaQr::Comensal->value,
+            'tickets' => $ticketsEmitidos, // Ahora siempre tendrá al menos 1 elemento
+        ];
     }
-
-    return [
-        'profile' => PerfilTarjetaQr::Comensal->value,
-        // Cambiamos 'ticket' por 'tickets' y pasamos el array
-        'tickets' => $ticketsEmitidos,
-    ];
-}
-
-/**
- * Método auxiliar para mantener limpio el código y evitar duplicar el array.
- */
-private function formatearTicket(TarjetaQr $tarjeta, $trabajador, $vale, $emitidoEn): array
-{
-    return [
-        'ticketId' => $tarjeta->numero_serie,
-        'validationToken' => $vale->token,
-        'workerName' => $trabajador->nombre_completo,
-        'workerRut' => $trabajador->rut_formateado,
-        'contractor' => $trabajador->contratista?->razon_social,
-        'costCenter' => $trabajador->centroCosto?->codigo ?? $this->textoSinCentroCosto(),
-        'costCenterNeedsImputation' => $trabajador->centro_costo_id === null,
-        'hypocaloricDiet' => (bool) $trabajador->dieta_hipocalorica,
-        'issuedAt' => $emitidoEn->toIso8601String(),
-        'multiticket' => (bool) $tarjeta->multiticket,
-    ];
-}    /**
+    /**
      * Asignación vigente de la tarjeta, con lock de fila.
      *
      * Se ordena por id descendente en vez de por asignada_en porque el índice
