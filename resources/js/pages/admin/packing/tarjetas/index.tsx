@@ -146,6 +146,7 @@ export default function PackingTarjetasIndex({
         codigo_qr: '',
         estado: 'disponible',
         observaciones: '',
+        multiticket: '0',
     });
 
     const assignForm = useForm({
@@ -177,7 +178,7 @@ export default function PackingTarjetasIndex({
         createForm.post('/admin/packing/tarjetas', {
             preserveScroll: true,
             onSuccess: () =>
-                createForm.reset('numero_serie', 'codigo_qr', 'observaciones'),
+                createForm.reset('numero_serie', 'codigo_qr', 'observaciones', 'multiticket'),
         });
     };
 
@@ -329,6 +330,36 @@ export default function PackingTarjetasIndex({
                                                     {estadoOption.label}
                                                 </SelectItem>
                                             ))}
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+                                <div className="space-y-2">
+                                    <Label htmlFor="multiticket">
+                                        Multiticket
+                                    </Label>
+                                    <Select
+                                        value={createForm.data.multiticket}
+                                        onValueChange={(value) =>
+                                            createForm.setData('multiticket', value)
+                                        }
+                                    >
+                                        <SelectTrigger id="multiticket">
+                                            <SelectValue  />
+                                        </SelectTrigger>
+                                        <SelectContent>
+
+                                                <SelectItem
+                                                    key="1"
+                                                    value="1"
+                                                >
+                                                    SI
+                                                </SelectItem>
+                                                <SelectItem
+                                                    key="0"
+                                                    value="0"
+                                                >
+                                                    NO
+                                                </SelectItem>
                                         </SelectContent>
                                     </Select>
                                 </div>

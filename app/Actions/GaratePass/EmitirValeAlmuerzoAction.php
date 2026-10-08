@@ -92,8 +92,9 @@ class EmitirValeAlmuerzoAction
         if ($trabajador === null) {
             throw new GaratePassApiException(GaratePassErrorCode::TicketNotRegistered);
         }
-
-        $this->verificarVentana($trabajador);
+        if(!$tarjeta->multiticket){}
+            $this->verificarVentana($trabajador);
+        }
 
         $emitidoEn = now();
 
@@ -125,6 +126,7 @@ class EmitirValeAlmuerzoAction
                 'costCenterNeedsImputation' => $trabajador->centro_costo_id === null,
                 'hypocaloricDiet' => (bool) $trabajador->dieta_hipocalorica,
                 'issuedAt' => $emitidoEn->toIso8601String(),
+                'multiticket' => (bool) $tarjeta->multiticket,
             ],
         ];
     }
@@ -160,7 +162,7 @@ class EmitirValeAlmuerzoAction
 
         $ultimo = $trabajador->ultimoValeEnVentana($ventanaHoras);
 
-        if ($ultimo === null) {
+        if ($ultimo === null || ! $ultimo->multiticket) {
             return;
         }
 

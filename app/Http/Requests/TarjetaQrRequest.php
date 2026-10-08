@@ -31,6 +31,7 @@ class TarjetaQrRequest extends FormRequest
             ],
             'estado' => ['required', 'in:disponible,asignada,bloqueada,baja'],
             'observaciones' => ['nullable', 'string'],
+            'multiticket' => ['required', 'boolean'],
         ];
     }
 }

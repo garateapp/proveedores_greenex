@@ -23,6 +23,7 @@ class TarjetaQr extends Model
         'perfil',
         'admin_user_id',
         'observaciones',
+        'multiticket',
     ];
 
     protected function casts(): array
