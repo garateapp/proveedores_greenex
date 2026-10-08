@@ -106,11 +106,13 @@ class EmitirValeAlmuerzoAction
 
         // Usamos '?->' por seguridad en caso de que el trabajador no tenga contratista asignado
         if ($trabajador->contratista?->rut !== '76067861-9') {
-            $asistenciasRecientes = Asistencia::where('contratista_id', $trabajador->contratista_id)
-                ->whereRaw('DATE(fecha_hora) = CURDATE()')
-                // CORREGIDO: Buscamos asistencias en la última hora, no en el futuro
-                ->whereRaw('TIME(fecha_hora) < CURTIME()')
-                ->count();
+            $asistenciasRecientes =MarcacionPacking::whereHas('trabajador.contratista', function ($query) {
+                $query->where('rut', $trabajador->contratista?->rut);
+            })
+            ->whereRaw('DATE(marcado_en) = CURDATE()')
+            ->whereRaw('TIME(marcado_en) < CURTIME()')
+            ->distinct('trabajador_id')
+            ->count('trabajador_id');
 
             if ($asistenciasRecientes > 0) {
                 $cantidadValesaEmitir = $asistenciasRecientes;
