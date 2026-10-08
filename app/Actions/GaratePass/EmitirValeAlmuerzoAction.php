@@ -10,6 +10,7 @@ use App\Models\TarjetaQrAsignacion;
 use App\Models\Trabajador;
 use App\Models\User;
 use App\Models\ValeAlmuerzo;
+use App\Models\Asistencia;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
@@ -98,7 +99,29 @@ class EmitirValeAlmuerzoAction
 
         $emitidoEn = now();
 
-        $vale = ValeAlmuerzo::query()->create([
+        $vales = []; // Array para acumular todos los vales
+
+    if($trabajador->contratista->rut != '76067861-9'){
+        $cantidadValesaEmitir = Asistencia::where('contratista_id', $trabajador->contratista_id)
+            ->whereRaw('DATE(fecha_hora) = CURDATE()')
+            ->whereRaw('TIME(fecha_hora) > CURTIME() - INTERVAL 1 HOUR')
+            ->count();
+
+        if($cantidadValesaEmitir > 0){
+            for($i = 0; $i < $cantidadValesaEmitir; $i++){
+                $vales[] = ValeAlmuerzo::query()->create([
+                    'token' => bin2hex(random_bytes(16)),
+                    'trabajador_id' => $trabajador->id,
+                    'tarjeta_qr_id' => $tarjeta->id,
+                    'asignacion_id' => $asignacion->id,
+                    'contratista' => $trabajador->contratista?->razon_social,
+                    'centro_costo_id' => $trabajador->centro_costo_id,
+                    'emitido_en' => $emitidoEn,
+                ]);
+            }
+        }
+    } else {
+        $vales[] = ValeAlmuerzo::query()->create([
             'token' => bin2hex(random_bytes(16)),
             'trabajador_id' => $trabajador->id,
             'tarjeta_qr_id' => $tarjeta->id,
@@ -107,28 +130,28 @@ class EmitirValeAlmuerzoAction
             'centro_costo_id' => $trabajador->centro_costo_id,
             'emitido_en' => $emitidoEn,
         ]);
-        Log::info('Vale de almuerzo emitido', [
-            'vale_id' => $vale->id,
-            'trabajador' => $trabajador,
-            'tarjeta_qr_id' => $tarjeta->id,
-            'asignacion_id' => $asignacion->id,
+    }
 
-        ]);
+    // Generar array de tickets para todos los vales
+    $tickets = array_map(function($vale) use ($tarjeta, $trabajador, $emitidoEn) {
         return [
-            'profile' => PerfilTarjetaQr::Comensal->value,
-            'ticket' => [
-                'ticketId' => $tarjeta->numero_serie,
-                'validationToken' => $vale->token,
-                'workerName' => $trabajador->nombre_completo,
-                'workerRut' => $trabajador->rut_formateado,
-                'contractor' => $trabajador->contratista?->razon_social,
-                'costCenter' => $trabajador->centroCosto?->codigo ?? $this->textoSinCentroCosto(),
-                'costCenterNeedsImputation' => $trabajador->centro_costo_id === null,
-                'hypocaloricDiet' => (bool) $trabajador->dieta_hipocalorica,
-                'issuedAt' => $emitidoEn->toIso8601String(),
-                'multiticket' => (bool) $tarjeta->multiticket,
-            ],
+            'ticketId' => $tarjeta->numero_serie,
+            'validationToken' => $vale->token,
+            'workerName' => $trabajador->nombre_completo,
+            'workerRut' => $trabajador->rut_formateado,
+            'contractor' => $trabajador->contratista?->razon_social,
+            'costCenter' => $trabajador->centroCosto?->codigo ?? $this->textoSinCentroCosto(),
+            'costCenterNeedsImputation' => $trabajador->centro_costo_id === null,
+            'hypocaloricDiet' => (bool) $trabajador->dieta_hipocalorica,
+            'issuedAt' => $emitidoEn->toIso8601String(),
+            'multiticket' => (bool) $tarjeta->multiticket,
         ];
+    }, $vales);
+
+    return [
+        'profile' => PerfilTarjetaQr::Comensal->value,
+        'tickets' => $tickets, // Ahora es un array de tickets
+    ];
     }
 
     /**
