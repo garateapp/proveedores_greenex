@@ -77,84 +77,87 @@ class EmitirValeAlmuerzoAction
      * @return array{profile: string, ticket: array<string, mixed>}
      */
     private function emitirParaComensal(TarjetaQr $tarjeta): array
-    {
-        $asignacion = $this->asignacionVigente($tarjeta);
+{
+    $asignacion = $this->asignacionVigente($tarjeta);
 
-        if ($asignacion === null) {
-            throw new GaratePassApiException(GaratePassErrorCode::TicketNotRegistered);
-        }
+    if ($asignacion === null) {
+        throw new GaratePassApiException(GaratePassErrorCode::TicketNotRegistered);
+    }
 
-        $trabajador = Trabajador::query()
-            ->with(['contratista', 'centroCosto'])
-            ->where('id', $asignacion->trabajador_id)
-            ->lockForUpdate()
-            ->first();
+    $trabajador = Trabajador::query()
+        ->with(['contratista', 'centroCosto'])
+        ->where('id', $asignacion->trabajador_id)
+        ->lockForUpdate()
+        ->first();
 
-        if ($trabajador === null) {
-            throw new GaratePassApiException(GaratePassErrorCode::TicketNotRegistered);
-        }
-        if(!$tarjeta->multiticket){
-            $this->verificarVentana($trabajador);
-        }
+    if ($trabajador === null) {
+        throw new GaratePassApiException(GaratePassErrorCode::TicketNotRegistered);
+    }
 
-        $emitidoEn = now();
+    if (!$tarjeta->multiticket) {
+        $this->verificarVentana($trabajador);
+    }
 
-        $vales = []; // Array para acumular todos los vales
+    $emitidoEn = now();
+    $ticketsEmitidos = []; // Array para almacenar todos los tickets
 
-    if($trabajador->contratista->rut != '76067861-9'){
+    // Datos base para la creación del ValeAlmuerzo
+    $dataVale = [
+        'trabajador_id' => $trabajador->id,
+        'tarjeta_qr_id' => $tarjeta->id,
+        'asignacion_id' => $asignacion->id,
+        'contratista' => $trabajador->contratista?->razon_social,
+        'centro_costo_id' => $trabajador->centro_costo_id,
+        'emitido_en' => $emitidoEn,
+    ];
+
+    if ($trabajador->contratista->rut != '76067861-9') {
         $cantidadValesaEmitir = Asistencia::where('contratista_id', $trabajador->contratista_id)
             ->whereRaw('DATE(fecha_hora) = CURDATE()')
             ->whereRaw('TIME(fecha_hora) > CURTIME() - INTERVAL 1 HOUR')
             ->count();
 
-        if($cantidadValesaEmitir > 0){
-            for($i = 0; $i < $cantidadValesaEmitir; $i++){
-                $vales[] = ValeAlmuerzo::query()->create([
-                    'token' => bin2hex(random_bytes(16)),
-                    'trabajador_id' => $trabajador->id,
-                    'tarjeta_qr_id' => $tarjeta->id,
-                    'asignacion_id' => $asignacion->id,
-                    'contratista' => $trabajador->contratista?->razon_social,
-                    'centro_costo_id' => $trabajador->centro_costo_id,
-                    'emitido_en' => $emitidoEn,
-                ]);
+        if ($cantidadValesaEmitir > 0) {
+            for ($i = 0; $i < $cantidadValesaEmitir; $i++) {
+                // IMPORTANTE: Generar un token único por cada iteración
+                $dataVale['token'] = bin2hex(random_bytes(16));
+                $vale = ValeAlmuerzo::query()->create($dataVale);
+
+                $ticketsEmitidos[] = $this->formatearTicket($tarjeta, $trabajador, $vale, $emitidoEn);
             }
         }
     } else {
-        $vales[] = ValeAlmuerzo::query()->create([
-            'token' => bin2hex(random_bytes(16)),
-            'trabajador_id' => $trabajador->id,
-            'tarjeta_qr_id' => $tarjeta->id,
-            'asignacion_id' => $asignacion->id,
-            'contratista' => $trabajador->contratista?->razon_social,
-            'centro_costo_id' => $trabajador->centro_costo_id,
-            'emitido_en' => $emitidoEn,
-        ]);
-    }
+        $dataVale['token'] = bin2hex(random_bytes(16));
+        $vale = ValeAlmuerzo::query()->create($dataVale);
 
-    // Generar array de tickets para todos los vales
-    $tickets = array_map(function($vale) use ($tarjeta, $trabajador, $emitidoEn) {
-        return [
-            'ticketId' => $tarjeta->numero_serie,
-            'validationToken' => $vale->token,
-            'workerName' => $trabajador->nombre_completo,
-            'workerRut' => $trabajador->rut_formateado,
-            'contractor' => $trabajador->contratista?->razon_social,
-            'costCenter' => $trabajador->centroCosto?->codigo ?? $this->textoSinCentroCosto(),
-            'costCenterNeedsImputation' => $trabajador->centro_costo_id === null,
-            'hypocaloricDiet' => (bool) $trabajador->dieta_hipocalorica,
-            'issuedAt' => $emitidoEn->toIso8601String(),
-            'multiticket' => (bool) $tarjeta->multiticket,
-        ];
-    }, $vales);
+        $ticketsEmitidos[] = $this->formatearTicket($tarjeta, $trabajador, $vale, $emitidoEn);
+    }
 
     return [
         'profile' => PerfilTarjetaQr::Comensal->value,
-        'tickets' => $tickets, // Ahora es un array de tickets
+        // Cambiamos 'ticket' por 'tickets' y pasamos el array
+        'tickets' => $ticketsEmitidos,
     ];
-    }
+}
 
-    /**
+/**
+ * Método auxiliar para mantener limpio el código y evitar duplicar el array.
+ */
+private function formatearTicket(TarjetaQr $tarjeta, $trabajador, $vale, $emitidoEn): array
+{
+    return [
+        'ticketId' => $tarjeta->numero_serie,
+        'validationToken' => $vale->token,
+        'workerName' => $trabajador->nombre_completo,
+        'workerRut' => $trabajador->rut_formateado,
+        'contractor' => $trabajador->contratista?->razon_social,
+        'costCenter' => $trabajador->centroCosto?->codigo ?? $this->textoSinCentroCosto(),
+        'costCenterNeedsImputation' => $trabajador->centro_costo_id === null,
+        'hypocaloricDiet' => (bool) $trabajador->dieta_hipocalorica,
+        'issuedAt' => $emitidoEn->toIso8601String(),
+        'multiticket' => (bool) $tarjeta->multiticket,
+    ];
+}    /**
      * Asignación vigente de la tarjeta, con lock de fila.
      *
      * Se ordena por id descendente en vez de por asignada_en porque el índice
