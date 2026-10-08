@@ -109,7 +109,7 @@ class EmitirValeAlmuerzoAction
             $asistenciasRecientes = Asistencia::where('contratista_id', $trabajador->contratista_id)
                 ->whereRaw('DATE(fecha_hora) = CURDATE()')
                 // CORREGIDO: Buscamos asistencias en la última hora, no en el futuro
-                ->whereRaw('TIME(fecha_hora) >= CURTIME() - INTERVAL 1 HOUR')
+                ->whereRaw('TIME(fecha_hora) < CURTIME()')
                 ->count();
 
             if ($asistenciasRecientes > 0) {
