@@ -141,7 +141,24 @@ class EmitirValeAlmuerzoAction
             'tickets' => $ticketsEmitidos, // Ahora siempre tendrá al menos 1 elemento
         ];
     }
-    /**
+/**
+ * Método auxiliar para mantener limpio el código y evitar duplicar el array.
+ */
+private function formatearTicket(TarjetaQr $tarjeta, $trabajador, $vale, $emitidoEn): array
+{
+    return [
+        'ticketId' => $tarjeta->numero_serie,
+        'validationToken' => $vale->token,
+        'workerName' => $trabajador->nombre_completo,
+        'workerRut' => $trabajador->rut_formateado,
+        'contractor' => $trabajador->contratista?->razon_social,
+        'costCenter' => $trabajador->centroCosto?->codigo ?? $this->textoSinCentroCosto(),
+        'costCenterNeedsImputation' => $trabajador->centro_costo_id === null,
+        'hypocaloricDiet' => (bool) $trabajador->dieta_hipocalorica,
+        'issuedAt' => $emitidoEn->toIso8601String(),
+        'multiticket' => (bool) $tarjeta->multiticket,
+    ];
+}    /**
      * Asignación vigente de la tarjeta, con lock de fila.
      *
      * Se ordena por id descendente en vez de por asignada_en porque el índice
