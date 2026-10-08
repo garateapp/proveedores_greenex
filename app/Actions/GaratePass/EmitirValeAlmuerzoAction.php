@@ -92,7 +92,7 @@ class EmitirValeAlmuerzoAction
         if ($trabajador === null) {
             throw new GaratePassApiException(GaratePassErrorCode::TicketNotRegistered);
         }
-        if(!$tarjeta->multiticket){}
+        if(!$tarjeta->multiticket){
             $this->verificarVentana($trabajador);
         }
 
