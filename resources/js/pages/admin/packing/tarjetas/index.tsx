@@ -234,6 +234,20 @@ export default function PackingTarjetasIndex({
         });
     };
 
+    const unassignCard = (tarjeta: TarjetaQrItem) => {
+        if (
+            !confirm(
+                `¿Desasignar la tarjeta ${tarjeta.numero_serie}? Quedará en estado disponible.`,
+            )
+        ) {
+            return;
+        }
+
+        router.delete(`/admin/packing/tarjetas/${tarjeta.id}/asignaciones`, {
+            preserveScroll: true,
+        });
+    };
+
     return (
         <>
             <Head title="Packing QR" />
@@ -820,6 +834,22 @@ export default function PackingTarjetasIndex({
                                                         <UserRoundX className="h-4 w-4" />
                                                     </Button>
                                                 )}
+                                                {tarjeta.perfil ===
+                                                    'COMENSAL' &&
+                                                    tarjeta.trabajador_actual && (
+                                                        <Button
+                                                            variant="ghost"
+                                                            size="sm"
+                                                            title="Desasignar tarjeta"
+                                                            onClick={() =>
+                                                                unassignCard(
+                                                                    tarjeta,
+                                                                )
+                                                            }
+                                                        >
+                                                            <UserRoundX className="h-4 w-4" />
+                                                        </Button>
+                                                    )}
                                             </TableCell>
                                         </TableRow>
                                     ))

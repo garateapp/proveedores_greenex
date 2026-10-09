@@ -128,6 +128,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
             Route::get('tarjetas/export', [PackingTarjetaController::class, 'export'])->name('tarjetas.export');
             Route::post('tarjetas', [PackingTarjetaController::class, 'store'])->name('tarjetas.store');
             Route::post('tarjetas/{tarjeta}/asignaciones', [PackingTarjetaAsignacionController::class, 'store'])->name('tarjetas.asignaciones.store');
+            Route::delete('tarjetas/{tarjeta}/asignaciones', [PackingTarjetaAsignacionController::class, 'destroy'])->name('tarjetas.asignaciones.destroy');
             Route::post('tarjetas/{tarjeta}/administrador', [PackingTarjetaController::class, 'assignAdmin'])->name('tarjetas.administrador.store');
             Route::delete('tarjetas/{tarjeta}/administrador', [PackingTarjetaController::class, 'revokeAdmin'])->name('tarjetas.administrador.destroy');
             Route::get('marcaciones', [PackingMarcacionController::class, 'index'])->name('marcaciones.index');
