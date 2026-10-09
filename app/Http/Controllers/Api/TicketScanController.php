@@ -16,7 +16,11 @@ class TicketScanController extends Controller
         $respuesta = ['profile' => $payload['profile']];
 
         if (isset($payload['tickets'])) {
-            $respuesta['tickets'] = $payload['tickets'];
+            if (count($payload['tickets']) === 1) {
+                $respuesta['ticket'] = $payload['tickets'][0];
+            } else {
+                $respuesta['tickets'] = $payload['tickets'];
+            }
         }
 
         if (isset($payload['admin'])) {
