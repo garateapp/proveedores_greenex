@@ -143,6 +143,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::resource('centros-costo', \App\Http\Controllers\Admin\CentroCostoController::class, ['except' => ['show', 'create', 'edit']])
             ->parameters(['centros-costo' => 'centroCosto']);
         Route::get('garatepass/vales-lote', [\App\Http\Controllers\Admin\ValeLoteController::class, 'index'])->name('garatepass.vales-lote.index');
+        Route::get('garatepass/tickets', [\App\Http\Controllers\Admin\TicketEmitidoReporteController::class, 'index'])->name('garatepass.tickets.index');
 
         Route::post('turnos/clone', [TurnoController::class, 'cloneFromDate'])->name('turnos.clone');
         Route::resource('turnos', TurnoController::class)

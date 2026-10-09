@@ -70,4 +70,18 @@ return [
 
     'dieta_cupos_maximos' => (int) env('GARATEPASS_DIETA_CUPOS_MAXIMOS', 20),
 
+    /*
+    |--------------------------------------------------------------------------
+    | Reporte de tickets emitidos
+    |--------------------------------------------------------------------------
+    |
+    | El reporte de tickets abiertos siempre desglosa por contratista. Para el
+    | contratista indicado aquí, además se desglosa por centro de costo, porque
+    | es el único que opera con esa granularidad. El RUT se compara sin puntos
+    | y con dígito verificador.
+    |
+    */
+
+    'reporte_rut_contratista' => env('GARATEPASS_REPORTE_RUT_CONTRATISTA', '76067861-9'),
+
 ];

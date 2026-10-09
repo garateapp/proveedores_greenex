@@ -11,3 +11,5 @@ Artisan::command('inspire', function () {
 Schedule::command('alertas:generate-documentos')->dailyAt('06:00');
 Schedule::command('alertas:notificar-documentos-trabajadores')->dailyAt('06:10');
 Schedule::command('garatepass:purge-idempotency-keys')->hourly();
+Schedule::command('report:tickets-emitidos')->dailyAt('16:00');
+Schedule::command('report:tickets-emitidos')->dailyAt('23:00');

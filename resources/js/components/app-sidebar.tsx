@@ -27,6 +27,7 @@ import {
     MapPin,
     QrCode,
     Settings,
+    TicketCheck,
     UploadCloud,
     Users,
     UtensilsCrossed,
@@ -70,15 +71,15 @@ export function AppSidebar() {
                   icon: FileText,
               },
               {
-                    title: 'Contratistas',
-                    href: '/admin/contratistas',
-                    icon: Building2,
-                },
-                {
-                    title: 'Traspaso de Personal',
-                    href: '/admin/contratistas/transferencia',
-                    icon: ArrowLeftRight,
-                },
+                  title: 'Contratistas',
+                  href: '/admin/contratistas',
+                  icon: Building2,
+              },
+              {
+                  title: 'Traspaso de Personal',
+                  href: '/admin/contratistas/transferencia',
+                  icon: ArrowLeftRight,
+              },
               {
                   title: 'Usuarios',
                   href: '/admin/users',
@@ -108,6 +109,11 @@ export function AppSidebar() {
                   title: 'Vales de Lote',
                   href: '/admin/garatepass/vales-lote',
                   icon: UtensilsCrossed,
+              },
+              {
+                  title: 'Tickets Emitidos',
+                  href: '/admin/garatepass/tickets',
+                  icon: TicketCheck,
               },
               {
                   title: 'Auditoría',
@@ -170,7 +176,6 @@ export function AppSidebar() {
     const herramientasItems: NavItem[] = isSupervisor
         ? []
         : [
-
               ...(isAdmin
                   ? [
                         {
@@ -178,11 +183,11 @@ export function AppSidebar() {
                             href: '/admin/packing/asistencia-reporte',
                             icon: ClipboardCheck,
                         },
-                         {
-                  title: 'Cuadratura asistencia',
-                  href: '/herramientas/cuadratura-asistencia',
-                  icon: Wrench,
-              },
+                        {
+                            title: 'Cuadratura asistencia',
+                            href: '/herramientas/cuadratura-asistencia',
+                            icon: Wrench,
+                        },
                     ]
                   : []),
           ];
