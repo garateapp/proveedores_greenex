@@ -11,6 +11,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import AppLayout from '@/layouts/app-layout';
 import { cn } from '@/lib/utils';
+import type { SharedData } from '@/types';
 import { type BreadcrumbItem } from '@/types';
 import {
     DndContext,
@@ -19,7 +20,7 @@ import {
     useDroppable,
 } from '@dnd-kit/core';
 import { CSS } from '@dnd-kit/utilities';
-import { Head, Link } from '@inertiajs/react';
+import { Head, Link, usePage } from '@inertiajs/react';
 import {
     AlertCircle,
     CheckCircle2,
@@ -44,8 +45,6 @@ import {
     useState,
 } from 'react';
 import Tesseract from 'tesseract.js';
-import { usePage } from '@inertiajs/react';
-import type { SharedData } from '@/types';
 
 interface ContratistaOption {
     id: number;
@@ -389,12 +388,14 @@ function RequirementTarget({
     uploadedInfo: CargadoInfo | null;
     matchedCount: number;
 }) {
+    const allowsMultiple = requirement.permite_multiples_en_mes;
+    const isUploaded = uploadedInfo !== null;
+    const isLocked = isUploaded && !allowsMultiple;
+
     const { setNodeRef, isOver } = useDroppable({
         id: `target-${requirement.id}`,
-        disabled: uploadedInfo !== null,
+        disabled: isLocked,
     });
-
-    const isUploaded = uploadedInfo !== null;
 
     const badge = (() => {
         if (!isUploaded) {
@@ -472,7 +473,7 @@ function RequirementTarget({
                 'rounded-xl border bg-white/75 p-3 transition',
                 borderClass,
                 isOver &&
-                    !isUploaded &&
+                    !isLocked &&
                     'border-[var(--brand-orange)] bg-[var(--brand-orange)]/10',
             )}
         >
@@ -488,6 +489,12 @@ function RequirementTarget({
                 {badge}
             </div>
 
+            {allowsMultiple && isUploaded && (
+                <p className="mt-2 text-[11px] font-medium text-[var(--brand-green)]">
+                    Disponible para subir otro documento en este período.
+                </p>
+            )}
+
             <div className="mt-2 flex items-center justify-between text-xs text-muted-foreground">
                 <span>
                     Max: {readableFileSize(requirement.tamano_maximo_kb)}
@@ -501,7 +508,7 @@ function RequirementTarget({
 function UploadFileCard({
     item,
     requirements,
-    uploadedTipoIds,
+    lockedTipoIds,
     onRemove,
     onConfirmSuggestion,
     onMatchChange,
@@ -509,7 +516,7 @@ function UploadFileCard({
 }: {
     item: CargaArchivoItem;
     requirements: TipoDocumentoRequirement[];
-    uploadedTipoIds: Map<number, CargadoInfo>;
+    lockedTipoIds: Set<number>;
     onRemove: (id: string) => void;
     onConfirmSuggestion: (id: string) => void;
     onMatchChange: (id: string, tipoDocumentoId: number | null) => void;
@@ -602,7 +609,7 @@ function UploadFileCard({
                             size="sm"
                             variant="outline"
                             onClick={() => onConfirmSuggestion(item.id)}
-                            disabled={uploadedTipoIds.has(
+                            disabled={lockedTipoIds.has(
                                 item.suggestion.tipoDocumentoId,
                             )}
                         >
@@ -659,7 +666,7 @@ function UploadFileCard({
                         <option
                             key={requirement.id}
                             value={requirement.id}
-                            disabled={uploadedTipoIds.has(requirement.id)}
+                            disabled={lockedTipoIds.has(requirement.id)}
                         >
                             {requirement.nombre}
                         </option>
@@ -728,6 +735,9 @@ export default function CentroCarga({
         useState<RequirementsResponse>(initialRequirements);
     const [loadingRequirements, setLoadingRequirements] = useState(false);
     const [items, setItems] = useState<CargaArchivoItem[]>([]);
+    const [sessionUploads, setSessionUploads] = useState<
+        Map<number, CargadoInfo>
+    >(new Map());
     const [dropzoneError, setDropzoneError] = useState('');
     const [uploadingAll, setUploadingAll] = useState(false);
 
@@ -739,6 +749,7 @@ export default function CentroCarga({
     );
     const queuedOCRJobIdsRef = useRef<Set<string>>(new Set());
     const ocrGenerationRef = useRef(0);
+    const lockedTipoIdsRef = useRef<Set<number>>(new Set());
     const fileInputRef = useRef<HTMLInputElement | null>(null);
 
     useEffect(() => {
@@ -897,8 +908,12 @@ export default function CentroCarga({
                         suggestion,
                         matchedTipoDocumentoId:
                             item.matchedTipoDocumentoId ??
-                            suggestion?.tipoDocumentoId ??
-                            null,
+                            (suggestion &&
+                            !lockedTipoIdsRef.current.has(
+                                suggestion.tipoDocumentoId,
+                            )
+                                ? suggestion.tipoDocumentoId
+                                : null),
                     }));
 
                     return;
@@ -932,8 +947,12 @@ export default function CentroCarga({
                     suggestion,
                     matchedTipoDocumentoId:
                         item.matchedTipoDocumentoId ??
-                        suggestion?.tipoDocumentoId ??
-                        null,
+                        (suggestion &&
+                        !lockedTipoIdsRef.current.has(
+                            suggestion.tipoDocumentoId,
+                        )
+                            ? suggestion.tipoDocumentoId
+                            : null),
                     expiryDate: item.expiryDate || expiryDate,
                 }));
             } catch {
@@ -975,10 +994,64 @@ export default function CentroCarga({
     );
 
     const selectedContratistaId = selectedContratista?.id ?? '';
-    const uploadedTipoIdsSet = useMemo(
-        () => new Map(requirements.tipos_documentos_cargados.map((d) => [d.tipo_documento_id, d])),
-        [requirements.tipos_documentos_cargados],
+
+    const requirementsById = useMemo(
+        () =>
+            new Map(
+                requirements.tipos_documentos.map((requirement) => [
+                    requirement.id,
+                    requirement,
+                ]),
+            ),
+        [requirements.tipos_documentos],
     );
+
+    const uploadedInfoByTipoId = useMemo(() => {
+        const map = new Map<number, CargadoInfo>();
+
+        for (const info of requirements.tipos_documentos_cargados) {
+            map.set(info.tipo_documento_id, info);
+        }
+
+        sessionUploads.forEach((info, tipoDocumentoId) => {
+            map.set(tipoDocumentoId, info);
+        });
+
+        return map;
+    }, [requirements.tipos_documentos_cargados, sessionUploads]);
+
+    const isTipoDocumentoLocked = useCallback(
+        (tipoDocumentoId: number): boolean => {
+            if (!uploadedInfoByTipoId.has(tipoDocumentoId)) {
+                return false;
+            }
+
+            const requirement = requirementsById.get(tipoDocumentoId);
+
+            return !(requirement?.permite_multiples_en_mes ?? false);
+        },
+        [requirementsById, uploadedInfoByTipoId],
+    );
+
+    const lockedTipoIdsSet = useMemo(() => {
+        const set = new Set<number>();
+
+        uploadedInfoByTipoId.forEach((_info, tipoDocumentoId) => {
+            if (isTipoDocumentoLocked(tipoDocumentoId)) {
+                set.add(tipoDocumentoId);
+            }
+        });
+
+        return set;
+    }, [isTipoDocumentoLocked, uploadedInfoByTipoId]);
+
+    useEffect(() => {
+        lockedTipoIdsRef.current = lockedTipoIdsSet;
+    }, [lockedTipoIdsSet]);
+
+    useEffect(() => {
+        setSessionUploads(new Map());
+    }, [selectedContratistaId, periodoAno, periodoMes]);
 
     useEffect(() => {
         const trimmedSearch = search.trim();
@@ -1196,7 +1269,7 @@ export default function CentroCarga({
         const fileId = activeId.replace('file-', '');
         const tipoDocumentoId = Number(overId.replace('target-', ''));
 
-        if (uploadedTipoIdsSet.has(tipoDocumentoId)) {
+        if (lockedTipoIdsSet.has(tipoDocumentoId)) {
             return;
         }
 
@@ -1208,13 +1281,20 @@ export default function CentroCarga({
 
     const setMatchForItem = useCallback(
         (id: string, tipoDocumentoId: number | null): void => {
+            if (
+                tipoDocumentoId !== null &&
+                lockedTipoIdsSet.has(tipoDocumentoId)
+            ) {
+                return;
+            }
+
             updateItem(id, (item) => ({
                 ...item,
                 matchedTipoDocumentoId: tipoDocumentoId,
                 errorMessage: null,
             }));
         },
-        [updateItem],
+        [lockedTipoIdsSet, updateItem],
     );
 
     const setExpiryForItem = useCallback(
@@ -1233,7 +1313,7 @@ export default function CentroCarga({
             updateItem(id, (item) => {
                 if (
                     !item.suggestion ||
-                    uploadedTipoIdsSet.has(item.suggestion.tipoDocumentoId)
+                    lockedTipoIdsSet.has(item.suggestion.tipoDocumentoId)
                 ) {
                     return item;
                 }
@@ -1244,7 +1324,7 @@ export default function CentroCarga({
                 };
             });
         },
-        [updateItem, uploadedTipoIdsSet],
+        [updateItem, lockedTipoIdsSet],
     );
 
     const removeItem = useCallback((id: string): void => {
@@ -1352,37 +1432,16 @@ export default function CentroCarga({
                             errorMessage: null,
                         }));
 
-                        setRequirements((previous) => {
-                            const requirement = previous.tipos_documentos.find(
-                                (item) =>
-                                    item.id === payload.data.tipo_documento_id,
-                            );
+                        setSessionUploads((previous) => {
+                            const next = new Map(previous);
+                            next.set(payload.data.tipo_documento_id, {
+                                tipo_documento_id:
+                                    payload.data.tipo_documento_id,
+                                estado: 'pendiente_validacion',
+                                motivo_rechazo: null,
+                            });
 
-                            if (requirement?.permite_multiples_en_mes) {
-                                return previous;
-                            }
-
-                            return {
-                                ...previous,
-                                tipos_documentos_cargados:
-                                    previous.tipos_documentos_cargados.some(
-                                        (d) =>
-                                            d.tipo_documento_id ===
-                                            payload.data.tipo_documento_id,
-                                    )
-                                        ? previous.tipos_documentos_cargados
-                                        : [
-                                              ...previous.tipos_documentos_cargados,
-                                              {
-                                                  tipo_documento_id:
-                                                      payload.data
-                                                          .tipo_documento_id,
-                                                  estado:
-                                                      'pendiente_validacion',
-                                                  motivo_rechazo: null,
-                                              },
-                                          ],
-                            };
+                            return next;
                         });
 
                         resolve();
@@ -1440,7 +1499,7 @@ export default function CentroCarga({
             (item) =>
                 item.matchedTipoDocumentoId !== null &&
                 item.uploadStatus !== 'success' &&
-                !uploadedTipoIdsSet.has(item.matchedTipoDocumentoId),
+                !lockedTipoIdsSet.has(item.matchedTipoDocumentoId),
         );
 
         if (toUpload.length === 0) {
@@ -1494,9 +1553,9 @@ export default function CentroCarga({
                 (item) =>
                     item.matchedTipoDocumentoId !== null &&
                     item.uploadStatus !== 'success' &&
-                    !uploadedTipoIdsSet.has(item.matchedTipoDocumentoId),
+                    !lockedTipoIdsSet.has(item.matchedTipoDocumentoId),
             ).length,
-        [items, uploadedTipoIdsSet],
+        [items, lockedTipoIdsSet],
     );
 
     return (
@@ -1756,9 +1815,7 @@ export default function CentroCarga({
                                                 requirements={
                                                     requirements.tipos_documentos
                                                 }
-                                                uploadedTipoIds={
-                                                    uploadedTipoIdsSet
-                                                }
+                                                lockedTipoIds={lockedTipoIdsSet}
                                                 onRemove={removeItem}
                                                 onConfirmSuggestion={
                                                     confirmSuggestion
@@ -1803,9 +1860,11 @@ export default function CentroCarga({
                                                 <RequirementTarget
                                                     key={requirement.id}
                                                     requirement={requirement}
-                                                    uploadedInfo={uploadedTipoIdsSet.get(
-                                                        requirement.id,
-                                                    ) ?? null}
+                                                    uploadedInfo={
+                                                        uploadedInfoByTipoId.get(
+                                                            requirement.id,
+                                                        ) ?? null
+                                                    }
                                                     matchedCount={
                                                         matchCountByRequirement.get(
                                                             requirement.id,
