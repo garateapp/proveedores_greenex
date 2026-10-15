@@ -62,6 +62,11 @@ class TarjetaQr extends Model
         return $this->hasMany(MarcacionPacking::class);
     }
 
+    public function movimientos(): HasMany
+    {
+        return $this->hasMany(TarjetaQrMovimiento::class);
+    }
+
     public function valesAlmuerzo(): HasMany
     {
         return $this->hasMany(ValeAlmuerzo::class);

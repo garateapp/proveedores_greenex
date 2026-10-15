@@ -96,7 +96,9 @@ export default function TrabajadorEdit({
         email: trabajador.email ?? '',
         telefono: trabajador.telefono ?? '',
         estado: trabajador.estado,
-        fecha_ingreso: trabajador.fecha_ingreso ?? '',
+        fecha_ingreso: trabajador.fecha_ingreso
+            ? trabajador.fecha_ingreso.slice(0, 10)
+            : '',
         observaciones: trabajador.observaciones ?? '',
         contratista_id: trabajador.contratista_id?.toString() ?? '',
         faena_ids: faenaIdsAsignadas,

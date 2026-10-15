@@ -3,6 +3,7 @@
 use App\Http\Controllers\Api\ActivityLogController;
 use App\Http\Controllers\Api\AsistenciaQrController;
 use App\Http\Controllers\Api\ControlAccessLogIngestController;
+use App\Http\Controllers\Api\TarjetaQrMovimientoController;
 use App\Http\Controllers\Api\TicketBatchController;
 use App\Http\Controllers\Api\TicketRedeemController;
 use App\Http\Controllers\Api\TicketScanController;
@@ -34,6 +35,9 @@ Route::prefix('v1')->group(function () {
 
     // Registro de asistencia por QR de tarjeta
     Route::post('/asistencias/qr', [AsistenciaQrController::class, 'store']);
+
+    // Movimientos de tarjeta QR (entrada/salida de la línea para baño, café, etc.)
+    Route::post('/tarjeta-qr/movimientos', [TarjetaQrMovimientoController::class, 'store']);
 
     // Activity logs - authenticated routes
     Route::middleware('auth')->group(function () {
