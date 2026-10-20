@@ -575,15 +575,11 @@ function UploadFileCard({
             <div className="mt-3 overflow-hidden rounded-lg border border-border/60 bg-muted/20">
                 {item.previewUrl ? (
                     isPdfFile(item.file) ? (
-                        <object
-                            data={item.previewUrl}
-                            type="application/pdf"
-                            className="h-44 w-full md:h-56"
-                        >
-                            <div className="flex h-44 items-center justify-center text-xs font-semibold text-muted-foreground md:h-56">
-                                Vista previa PDF no disponible en este navegador
-                            </div>
-                        </object>
+                        <iframe
+                            src={`${item.previewUrl}#toolbar=0`}
+                            title={item.file.name}
+                            className="h-44 w-full border-0 md:h-56"
+                        />
                     ) : (
                         <img
                             src={item.previewUrl}
