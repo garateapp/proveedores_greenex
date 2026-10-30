@@ -5,7 +5,9 @@ namespace Tests\Feature;
 use App\Enums\UserRole;
 use App\Models\Contratista;
 use App\Models\Documento;
+use App\Models\DocumentoTrabajador;
 use App\Models\TipoDocumento;
+use App\Models\Trabajador;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Inertia\Testing\AssertableInertia as Assert;
@@ -157,6 +159,76 @@ class DocumentoApprovalQueueTest extends TestCase
             'validado_por' => $admin->id,
             'motivo_rechazo' => 'Archivo ilegible.',
         ]);
+    }
+
+    public function test_approval_queue_can_filter_worker_documents_by_trabajador(): void
+    {
+        $admin = User::factory()->create([
+            'role' => UserRole::Admin,
+            'contratista_id' => null,
+        ]);
+
+        $contratista = Contratista::factory()->create([
+            'estado' => 'activo',
+        ]);
+
+        $tipoDocumento = TipoDocumento::create([
+            'nombre' => 'Certificado de Antecedentes',
+            'codigo' => 'CERT_ANTECEDENTES',
+            'descripcion' => null,
+            'periodicidad' => 'anual',
+            'es_obligatorio' => true,
+            'es_documento_trabajador' => true,
+            'dias_vencimiento' => 365,
+            'formatos_permitidos' => ['pdf'],
+            'tamano_maximo_kb' => 3072,
+            'requiere_validacion' => true,
+            'instrucciones' => null,
+            'activo' => true,
+        ]);
+
+        $trabajadorFiltrado = Trabajador::create([
+            'id' => '22222222',
+            'documento' => '22222222-2',
+            'nombre' => 'Beto',
+            'apellido' => 'Perez',
+            'contratista_id' => $contratista->id,
+            'estado' => 'activo',
+            'fecha_ingreso' => now(),
+        ]);
+
+        $otroTrabajador = Trabajador::create([
+            'id' => '33333333',
+            'documento' => '33333333-3',
+            'nombre' => 'Ana',
+            'apellido' => 'Lopez',
+            'contratista_id' => $contratista->id,
+            'estado' => 'activo',
+            'fecha_ingreso' => now(),
+        ]);
+
+        foreach ([$trabajadorFiltrado, $otroTrabajador] as $trabajador) {
+            DocumentoTrabajador::create([
+                'trabajador_id' => $trabajador->id,
+                'tipo_documento_id' => $tipoDocumento->id,
+                'archivo_nombre_original' => "cedula-{$trabajador->id}.pdf",
+                'archivo_ruta' => "docs/{$trabajador->id}/cedula.pdf",
+                'archivo_tamano_kb' => 210,
+                'estado' => 'pendiente_validacion',
+                'fecha_vencimiento' => null,
+                'cargado_por' => $admin->id,
+            ]);
+        }
+
+        $this->actingAs($admin)
+            ->get(route('documentos.aprobaciones', ['trabajador_id' => $trabajadorFiltrado->id]))
+            ->assertInertia(fn (Assert $page) => $page
+                ->component('documentos/aprobaciones')
+                ->has('trabajadores')
+                ->where('filters.trabajador_id', $trabajadorFiltrado->id)
+                ->has('documentosTrabajadores.data', 1)
+                ->where('documentosTrabajadores.data.0.trabajador.id', $trabajadorFiltrado->id)
+            );
     }
 
     private function createCompanyDocumentType(): TipoDocumento

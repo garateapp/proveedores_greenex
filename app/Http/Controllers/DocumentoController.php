@@ -212,6 +212,10 @@ class DocumentoController extends Controller
             $query->where('periodo_ano', $ano);
         }
 
+        // Company documents are not tied to a specific worker; the worker
+        // filter only narrows the worker documents table below.
+        $trabajadorId = $request->input('trabajador_id');
+
         $documentos = $query->paginate(15)->withQueryString();
 
         $documentosTrabajadoresQuery = DocumentoTrabajador::query()
@@ -249,6 +253,10 @@ class DocumentoController extends Controller
             $documentosTrabajadoresQuery->byEstado($estado);
         }
 
+        if ($trabajadorId) {
+            $documentosTrabajadoresQuery->where('trabajador_id', $trabajadorId);
+        }
+
         $documentosTrabajadores = $documentosTrabajadoresQuery->paginate(15)->withQueryString();
 
         $tiposDocumentos = TipoDocumento::query()
@@ -268,12 +276,35 @@ class DocumentoController extends Controller
                 ->all()
             : [];
 
+        $trabajadoresQuery = Trabajador::query()
+            ->select(['id', 'documento', 'nombre', 'apellido', 'contratista_id'])
+            ->withTrashed();
+
+        if (! $user->isAdmin()) {
+            $trabajadoresQuery->where('contratista_id', $user->contratista_id);
+        } elseif ($contratistaId = $request->input('contratista_id')) {
+            $trabajadoresQuery->where('contratista_id', $contratistaId);
+        }
+
+        $trabajadores = $trabajadoresQuery
+            ->orderBy('nombre')
+            ->orderBy('apellido')
+            ->limit(500)
+            ->get()
+            ->map(fn (Trabajador $trabajador) => [
+                'value' => $trabajador->id,
+                'label' => "{$trabajador->nombre_completo} ({$trabajador->documento})",
+            ])
+            ->values()
+            ->all();
+
         return Inertia::render('documentos/aprobaciones', [
             'documentos' => $documentos,
             'documentosTrabajadores' => $documentosTrabajadores,
             'tiposDocumentos' => $tiposDocumentos,
             'contratistas' => $contratistas,
-            'filters' => $request->only(['tipo_documento_id', 'contratista_id', 'ano', 'estado']),
+            'trabajadores' => $trabajadores,
+            'filters' => $request->only(['tipo_documento_id', 'contratista_id', 'ano', 'estado', 'trabajador_id']),
         ]);
     }
 
