@@ -35,6 +35,7 @@ import {
     TooltipContent,
     TooltipTrigger,
 } from '@/components/ui/tooltip';
+import { Combobox } from '@/components/ui/combobox';
 import AppLayout from '@/layouts/app-layout';
 import { type BreadcrumbItem } from '@/types';
 import { Head, Link, router, usePage } from '@inertiajs/react';
@@ -129,6 +130,7 @@ interface Pagination<T> {
 interface Filters {
     tipo_documento_id?: string;
     contratista_id?: string;
+    trabajador_id?: string;
     ano?: string;
     estado?: string;
 }
@@ -138,6 +140,7 @@ interface Props {
     documentosTrabajadores: Pagination<DocumentoTrabajador>;
     tiposDocumentos: TipoDocumento[];
     contratistas: { value: string; label: string }[];
+    trabajadores: { value: string; label: string }[];
     filters: Filters;
 }
 
@@ -174,6 +177,7 @@ export default function DocumentosAprobaciones({
     documentosTrabajadores,
     tiposDocumentos,
     contratistas,
+    trabajadores,
     filters,
 }: Props) {
     const page = usePage<{ auth: { user: { isAdmin: boolean } } }>();
@@ -191,6 +195,11 @@ export default function DocumentosAprobaciones({
         );
     };
 
+    const trabajadorOpciones = [
+        { value: '__all__', label: 'Todos los trabajadores' },
+        ...trabajadores,
+    ];
+
     const buildPageHref = (page: number): string => {
         const params = new URLSearchParams();
 
@@ -200,6 +209,10 @@ export default function DocumentosAprobaciones({
 
         if (filters.contratista_id) {
             params.set('contratista_id', filters.contratista_id);
+        }
+
+        if (filters.trabajador_id) {
+            params.set('trabajador_id', filters.trabajador_id);
         }
 
         if (filters.estado) {
@@ -372,11 +385,11 @@ export default function DocumentosAprobaciones({
                             Filtros de aprobación
                         </CardTitle>
                         <CardDescription>
-                            Acota la revisión por tipo de documento, contratista
-                            o año.
+                            Acota la revisión por tipo de documento, contratista,
+                            trabajador o año.
                         </CardDescription>
                     </CardHeader>
-                    <CardContent className="grid gap-4 md:grid-cols-4">
+                    <CardContent className="grid gap-4 md:grid-cols-5">
                         <div className="space-y-2">
                             <label className="text-sm font-medium">
                                 Tipo de Documento
@@ -442,6 +455,25 @@ export default function DocumentosAprobaciones({
                                 </Select>
                             </div>
                         )}
+
+                        <div className="space-y-2">
+                            <label className="text-sm font-medium">
+                                Trabajador
+                            </label>
+                            <Combobox
+                                options={trabajadorOpciones}
+                                value={filters.trabajador_id || '__all__'}
+                                onValueChange={(value) =>
+                                    handleFilterChange(
+                                        'trabajador_id',
+                                        value === '__all__' ? '' : value,
+                                    )
+                                }
+                                placeholder="Todos los trabajadores"
+                                searchPlaceholder="Buscar por nombre o RUT..."
+                                emptyMessage="No se encontraron trabajadores."
+                            />
+                        </div>
 
                         <div className="space-y-2">
                             <label className="text-sm font-medium">
