@@ -15,6 +15,7 @@ class DocumentoTrabajador extends Model
 
     protected $fillable = [
         'trabajador_id',
+        'contratista_id',
         'tipo_documento_id',
         'version',
         'es_ultima_version',
@@ -64,6 +65,14 @@ class DocumentoTrabajador extends Model
     public function trabajador(): BelongsTo
     {
         return $this->belongsTo(Trabajador::class);
+    }
+
+    /**
+     * Get the contratista that uploaded this documento (historical marker).
+     */
+    public function contratista(): BelongsTo
+    {
+        return $this->belongsTo(Contratista::class);
     }
 
     /**
