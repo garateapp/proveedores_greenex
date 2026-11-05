@@ -112,6 +112,8 @@ class EmitirValeAlmuerzoAction
         $ticketsEmitidos = [];
 
         // 1. Determinar cuántos vales se deben emitir.
+        $cantidadValesEmitir = 1;
+
         $puedeEmitirMultiples = $tarjeta->multiticket
             && $trabajador->contratista?->rut === self::RUT_CONTRATISTA_MULTITICKET;
 
