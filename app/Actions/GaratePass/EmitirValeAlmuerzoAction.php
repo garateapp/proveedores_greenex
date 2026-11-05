@@ -99,7 +99,12 @@ class EmitirValeAlmuerzoAction
             throw new GaratePassApiException(GaratePassErrorCode::TicketNotRegistered);
         }
 
-        if (! $tarjeta->multiticket && ! $trabajador->autorizado_multiples_tickets_dia) {
+        // El "extra ticket" (trabajador autorizado) imprime un solo vale por día,
+        // distinto a multiticket que imprime varios según asistencias. Ninguno de
+        // los dos está sujeto a la ventana de enfriamiento.
+        $esExtraTicket = (bool) $trabajador->autorizado_multiples_tickets_dia;
+
+        if (! $tarjeta->multiticket && ! $esExtraTicket) {
             $this->verificarVentana($trabajador);
         }
 
@@ -107,15 +112,11 @@ class EmitirValeAlmuerzoAction
         $ticketsEmitidos = [];
 
         // 1. Determinar cuántos vales se deben emitir.
-        // Solo la tarjeta multiticket del contratista configurado puede imprimir
-        // más de un vale; cualquier otro caso emite un único ticket.
-        $cantidadValesEmitir = 1;
-
-        $puedeEmitirMultiples = ($tarjeta->multiticket
-            && $trabajador->contratista?->rut === self::RUT_CONTRATISTA_MULTITICKET)
-            || (bool) $trabajador->autorizado_multiples_tickets_dia;
+        $puedeEmitirMultiples = $tarjeta->multiticket
+            && $trabajador->contratista?->rut === self::RUT_CONTRATISTA_MULTITICKET;
 
         if ($puedeEmitirMultiples) {
+            // Multiticket del contratista especial: un vale por cada asistencia del día.
             $asistenciasRecientes = MarcacionPacking::query()
                 ->whereHas(
                     'trabajador.contratista',
@@ -129,6 +130,9 @@ class EmitirValeAlmuerzoAction
             if ($asistenciasRecientes > 0) {
                 $cantidadValesEmitir = $asistenciasRecientes;
             }
+        } elseif ($esExtraTicket) {
+            // Extra ticket: exactamente un vale por día.
+            $cantidadValesEmitir = 1;
         }
 
         // 2. Datos base que se repiten en todos los vales
