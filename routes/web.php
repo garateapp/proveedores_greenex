@@ -131,6 +131,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
             Route::delete('tarjetas/{tarjeta}/asignaciones', [PackingTarjetaAsignacionController::class, 'destroy'])->name('tarjetas.asignaciones.destroy');
             Route::post('tarjetas/{tarjeta}/administrador', [PackingTarjetaController::class, 'assignAdmin'])->name('tarjetas.administrador.store');
             Route::delete('tarjetas/{tarjeta}/administrador', [PackingTarjetaController::class, 'revokeAdmin'])->name('tarjetas.administrador.destroy');
+            Route::patch('tarjetas/{tarjeta}/trabajador/autorizado-multiples', [PackingTarjetaController::class, 'toggleAutorizadoMultiples'])->name('tarjetas.trabajador.autorizado-multiples');
+            Route::patch('tarjetas/{tarjeta}/trabajador/dieta-hipocalorica', [PackingTarjetaController::class, 'toggleDietaHipocalorica'])->name('tarjetas.trabajador.dieta-hipocalorica');
             Route::get('marcaciones', [PackingMarcacionController::class, 'index'])->name('marcaciones.index');
             Route::get('asistencia-reporte', [PackingAttendanceReportController::class, 'index'])->name('asistencia-reporte.index');
             Route::get('asistencia-reporte/export', [PackingAttendanceReportController::class, 'export'])->name('asistencia-reporte.export');

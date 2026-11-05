@@ -99,7 +99,7 @@ class EmitirValeAlmuerzoAction
             throw new GaratePassApiException(GaratePassErrorCode::TicketNotRegistered);
         }
 
-        if (! $tarjeta->multiticket) {
+        if (! $tarjeta->multiticket && ! $trabajador->autorizado_multiples_tickets_dia) {
             $this->verificarVentana($trabajador);
         }
 
@@ -111,8 +111,9 @@ class EmitirValeAlmuerzoAction
         // más de un vale; cualquier otro caso emite un único ticket.
         $cantidadValesEmitir = 1;
 
-        $puedeEmitirMultiples = $tarjeta->multiticket
-            && $trabajador->contratista?->rut === self::RUT_CONTRATISTA_MULTITICKET;
+        $puedeEmitirMultiples = ($tarjeta->multiticket
+            && $trabajador->contratista?->rut === self::RUT_CONTRATISTA_MULTITICKET)
+            || (bool) $trabajador->autorizado_multiples_tickets_dia;
 
         if ($puedeEmitirMultiples) {
             $asistenciasRecientes = MarcacionPacking::query()

@@ -17,6 +17,7 @@ import {
     SelectTrigger,
     SelectValue,
 } from '@/components/ui/select';
+import { Switch } from '@/components/ui/switch';
 import {
     Table,
     TableBody,
@@ -73,6 +74,8 @@ interface TarjetaQrItem {
         nombre_completo: string;
         contratista: string | null;
         asignada_en: string | null;
+        autorizado_multiples_tickets_dia: boolean;
+        dieta_hipocalorica: boolean;
     } | null;
 }
 
@@ -115,6 +118,7 @@ export default function PackingTarjetasIndex({
     const [perfil, setPerfil] = useState(filters.perfil ?? 'all');
     const [showAdminDialog, setShowAdminDialog] = useState(false);
     const exportQuery = new URLSearchParams();
+    const toggleForm = useForm();
 
     if (search) {
         exportQuery.set('search', search);
@@ -232,6 +236,32 @@ export default function PackingTarjetasIndex({
         router.delete(`/admin/packing/tarjetas/${tarjeta.id}/administrador`, {
             preserveScroll: true,
         });
+    };
+
+    const toggleAutorizadoMultiples = (tarjeta: TarjetaQrItem) => {
+        if (!tarjeta.trabajador_actual) {
+            return;
+        }
+
+        toggleForm.patch(
+            `/admin/packing/tarjetas/${tarjeta.id}/trabajador/autorizado-multiples`,
+            {
+                preserveScroll: true,
+            },
+        );
+    };
+
+    const toggleDietaHipocalorica = (tarjeta: TarjetaQrItem) => {
+        if (!tarjeta.trabajador_actual) {
+            return;
+        }
+
+        toggleForm.patch(
+            `/admin/packing/tarjetas/${tarjeta.id}/trabajador/dieta-hipocalorica`,
+            {
+                preserveScroll: true,
+            },
+        );
     };
 
     const unassignCard = (tarjeta: TarjetaQrItem) => {
@@ -723,6 +753,8 @@ export default function PackingTarjetasIndex({
                                     <TableHead>Perfil</TableHead>
                                     <TableHead>Estado</TableHead>
                                     <TableHead>Asignación activa</TableHead>
+                                    <TableHead>Extra Ticket</TableHead>
+                                    <TableHead>Hipocalórico</TableHead>
                                     <TableHead>Observaciones</TableHead>
                                     <TableHead className="text-right">
                                         Acciones
@@ -733,7 +765,7 @@ export default function PackingTarjetasIndex({
                                 {tarjetas.length === 0 ? (
                                     <TableRow>
                                         <TableCell
-                                            colSpan={7}
+                                            colSpan={9}
                                             className="text-center"
                                         >
                                             No hay tarjetas registradas.
@@ -817,9 +849,38 @@ export default function PackingTarjetasIndex({
                                                     </span>
                                                 )}
                                             </TableCell>
+                                            <TableCell className="text-center">
+                                                {tarjeta.trabajador_actual && (
+                                                    <>
+                                                        <Switch
+                                                            checked={tarjeta.trabajador_actual.autorizado_multiples_tickets_dia}
+                                                            onCheckedChange={() =>
+                                                                toggleAutorizadoMultiples(tarjeta)
+                                                            }
+                                                            aria-label="Ticket extra por día"
+                                                        />
+                                                    </>
+                                                )
+                                            }
+                                            </TableCell>
+                                            <TableCell className="text-center">
+                                                 {tarjeta.trabajador_actual && (
+                                                    <>
+                                                        <Switch
+                                                            checked={tarjeta.trabajador_actual.dieta_hipocalorica}
+                                                            onCheckedChange={() =>
+                                                                toggleDietaHipocalorica(tarjeta)
+                                                            }
+                                                            aria-label="Dieta hipocalórica"
+                                                        />
+                                                    </>
+                                                )}
+                                                {!tarjeta.trabajador_actual && <span>-</span>}
+                                            </TableCell>
                                             <TableCell>
                                                 {tarjeta.observaciones || '-'}
                                             </TableCell>
+
                                             <TableCell className="text-right">
                                                 {tarjeta.perfil ===
                                                     'ADMIN_CASINO' && (
@@ -837,19 +898,19 @@ export default function PackingTarjetasIndex({
                                                 {tarjeta.perfil ===
                                                     'COMENSAL' &&
                                                     tarjeta.trabajador_actual && (
-                                                        <Button
-                                                            variant="ghost"
-                                                            size="sm"
-                                                            title="Desasignar tarjeta"
-                                                            onClick={() =>
-                                                                unassignCard(
-                                                                    tarjeta,
-                                                                )
-                                                            }
-                                                        >
-                                                            <UserRoundX className="h-4 w-4" />
-                                                        </Button>
-                                                    )}
+                                                    <Button
+                                                        variant="ghost"
+                                                        size="sm"
+                                                        title="Desasignar tarjeta"
+                                                        onClick={() =>
+                                                            unassignCard(
+                                                                tarjeta,
+                                                            )
+                                                        }
+                                                    >
+                                                        <UserRoundX className="h-4 w-4" />
+                                                    </Button>
+                                                )}
                                             </TableCell>
                                         </TableRow>
                                     ))

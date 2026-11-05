@@ -45,6 +45,8 @@ class PackingTarjetaController extends Controller
                     'nombre_completo' => $tarjeta->asignacionActiva->trabajador->nombre_completo,
                     'contratista' => $tarjeta->asignacionActiva->trabajador->contratista?->razon_social,
                     'asignada_en' => $tarjeta->asignacionActiva->asignada_en?->format('Y-m-d H:i:s'),
+                    'autorizado_multiples_tickets_dia' => (bool) $tarjeta->asignacionActiva->trabajador->autorizado_multiples_tickets_dia,
+                    'dieta_hipocalorica' => (bool) $tarjeta->asignacionActiva->trabajador->dieta_hipocalorica,
                 ],
             ])
             ->values();
@@ -193,6 +195,40 @@ class PackingTarjetaController extends Controller
 
         return redirect('/admin/packing/tarjetas')
             ->with('success', "Tarjeta {$tarjeta->numero_serie} devuelta al perfil de comensal.");
+    }
+
+    public function toggleAutorizadoMultiples(Request $request, TarjetaQr $tarjeta): RedirectResponse
+    {
+        $trabajador = $tarjeta->asignacionActiva?->trabajador;
+
+        if ($trabajador === null) {
+            return redirect('/admin/packing/tarjetas')
+                ->with('error', 'La tarjeta no tiene un trabajador asignado.');
+        }
+
+        $trabajador->update([
+            'autorizado_multiples_tickets_dia' => ! $trabajador->autorizado_multiples_tickets_dia,
+        ]);
+
+        return redirect('/admin/packing/tarjetas')
+            ->with('success', "Se actualizó la autorización de tickets múltiples para {$trabajador->nombre_completo}.");
+    }
+
+    public function toggleDietaHipocalorica(Request $request, TarjetaQr $tarjeta): RedirectResponse
+    {
+        $trabajador = $tarjeta->asignacionActiva?->trabajador;
+
+        if ($trabajador === null) {
+            return redirect('/admin/packing/tarjetas')
+                ->with('error', 'La tarjeta no tiene un trabajador asignado.');
+        }
+
+        $trabajador->update([
+            'dieta_hipocalorica' => ! $trabajador->dieta_hipocalorica,
+        ]);
+
+        return redirect('/admin/packing/tarjetas')
+            ->with('success', "Se actualizó la dieta hipocalórica para {$trabajador->nombre_completo}.");
     }
 
     private function tarjetasQuery(string $search, mixed $estado, mixed $perfil = null): Builder

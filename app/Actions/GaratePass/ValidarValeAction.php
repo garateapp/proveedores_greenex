@@ -82,6 +82,7 @@ class ValidarValeAction
                 'name' => $trabajador?->nombre_completo,
                 'rut' => $trabajador?->rut_formateado,
                 'contractor' => $vale->contratista,
+                'authorizedMultipleTicketsPerDay' => (bool) $trabajador?->autorizado_multiples_tickets_dia,
             ],
         ];
     }

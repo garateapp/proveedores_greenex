@@ -37,6 +37,7 @@ class Trabajador extends Model
         'fecha_ingreso',
         'observaciones',
         'dieta_hipocalorica',
+        'autorizado_multiples_tickets_dia',
     ];
 
     protected function casts(): array
@@ -44,6 +45,7 @@ class Trabajador extends Model
         return [
             'fecha_ingreso' => 'date',
             'dieta_hipocalorica' => 'boolean',
+            'autorizado_multiples_tickets_dia' => 'boolean',
             'created_at' => 'datetime',
             'updated_at' => 'datetime',
             'deleted_at' => 'datetime',
