@@ -450,6 +450,22 @@ export default function TrabajadoresIndex({
                                 </p>
                             </div>
                         </form>
+
+                        {page.props.tarjeta_qr_errors && Array.isArray(page.props.tarjeta_qr_errors) && page.props.tarjeta_qr_errors.length > 0 && (
+                            <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-4">
+                                <h3 className="text-sm font-semibold text-destructive mb-2">
+                                    Tarjetas QR no asignadas ({page.props.tarjeta_qr_errors.length})
+                                </h3>
+                                <ul className="text-sm text-destructive space-y-1 list-disc pl-5">
+                                    {page.props.tarjeta_qr_errors.map((error: { fila: number; codigo_qr: string; trabajador: string; motivo: string }, idx: number) => (
+                                        <li key={idx}>
+                                            Fila {error.fila} - QR {error.codigo_qr} - Trabajador {error.trabajador}:{' '}
+                                            {error.motivo}
+                                        </li>
+                                    ))}
+                                </ul>
+                            </div>
+                        )}
                     </CardContent>
                 </Card>
 

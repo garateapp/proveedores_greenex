@@ -3,6 +3,8 @@
 namespace App\Http\Controllers;
 
 use App\Http\Requests\TrabajadorImportRequest;
+use App\Models\TarjetaQr;
+use App\Models\TarjetaQrAsignacion;
 use App\Models\Trabajador;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
@@ -53,11 +55,18 @@ class TrabajadorImportController extends Controller
                 ]);
             }
 
+            $hasQrColumn = isset($data[0]['codigo_qr']);
+
+            if ($hasQrColumn && ! $user->isAdmin()) {
+                abort(403, 'Solo los administradores pueden asignar tarjetas QR durante la importación.');
+            }
+
             $errors = [];
+            $tarjetaQrErrors = [];
             $imported = 0;
             $skipped = 0;
 
-            DB::transaction(function () use ($data, $contratistaId, $faenaId, &$errors, &$imported, &$skipped) {
+            DB::transaction(function () use ($data, $contratistaId, $faenaId, $hasQrColumn, $user, &$errors, &$tarjetaQrErrors, &$imported, &$skipped) {
                 foreach ($data as $index => $row) {
                     $rowNumber = $index + 2; // +2 because index starts at 0 and we skip header
 
@@ -119,6 +128,11 @@ class TrabajadorImportController extends Controller
                         ]);
                     }
 
+                    // Assign tarjeta QR if column exists and value present
+                    if ($hasQrColumn && ! empty($row['codigo_qr'])) {
+                        $this->assignTarjetaQr($trabajador, $row['codigo_qr'], $user->id, $rowNumber, $tarjetaQrErrors);
+                    }
+
                     $imported++;
                 }
             });
@@ -128,7 +142,8 @@ class TrabajadorImportController extends Controller
                     ->withErrors([
                         'file' => 'No se pudo importar ningún trabajador. Revise el archivo y corrija las filas omitidas.',
                     ])
-                    ->with('import_errors', $errors);
+                    ->with('import_errors', $errors)
+                    ->with('tarjeta_qr_errors', $tarjetaQrErrors);
             }
 
             $message = "Importación completada: {$imported} trabajadores importados";
@@ -139,10 +154,75 @@ class TrabajadorImportController extends Controller
             return back()->with([
                 'success' => $message,
                 'import_errors' => $errors,
+                'tarjeta_qr_errors' => $tarjetaQrErrors,
             ]);
         } catch (\Exception $e) {
             return back()->withErrors(['file' => 'Error al procesar el archivo: '.$e->getMessage()]);
         }
+    }
+
+    /**
+     * Assign a tarjeta QR to a trabajador.
+     *
+     * @param  array<string, mixed>  $tarjetaQrErrors
+     */
+    private function assignTarjetaQr(Trabajador $trabajador, string $codigoQr, int $asignadaPor, int $rowNumber, array &$tarjetaQrErrors): void
+    {
+        $tarjeta = TarjetaQr::where('codigo_qr', $codigoQr)->first();
+
+        if (! $tarjeta) {
+            $tarjetaQrErrors[] = [
+                'fila' => $rowNumber,
+                'codigo_qr' => $codigoQr,
+                'trabajador' => $trabajador->id,
+                'motivo' => 'Tarjeta QR no encontrada',
+            ];
+
+            return;
+        }
+
+        if ($tarjeta->estado !== 'activa') {
+            $tarjetaQrErrors[] = [
+                'fila' => $rowNumber,
+                'codigo_qr' => $codigoQr,
+                'trabajador' => $trabajador->id,
+                'motivo' => 'Tarjeta QR no está activa (estado: '.$tarjeta->estado.')',
+            ];
+
+            return;
+        }
+
+        if ($tarjeta->perfil !== \App\Enums\PerfilTarjetaQr::Comensal) {
+            $tarjetaQrErrors[] = [
+                'fila' => $rowNumber,
+                'codigo_qr' => $codigoQr,
+                'trabajador' => $trabajador->id,
+                'motivo' => 'Perfil de tarjeta no válido para asignación a trabajador ('.$tarjeta->perfil->value.')',
+            ];
+
+            return;
+        }
+
+        $asignacionActiva = $tarjeta->asignacionActiva;
+
+        if ($asignacionActiva) {
+            $tarjetaQrErrors[] = [
+                'fila' => $rowNumber,
+                'codigo_qr' => $codigoQr,
+                'trabajador' => $trabajador->id,
+                'motivo' => 'Tarjeta QR ya asignada a otro trabajador',
+            ];
+
+            return;
+        }
+
+        TarjetaQrAsignacion::create([
+            'tarjeta_qr_id' => $tarjeta->id,
+            'trabajador_id' => $trabajador->id,
+            'asignada_por' => $asignadaPor,
+            'asignada_en' => now(),
+            'observaciones' => 'Asignada por importación masiva de trabajadores',
+        ]);
     }
 
     /**
