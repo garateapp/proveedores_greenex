@@ -47,6 +47,8 @@ class PackingAttendanceReportController extends Controller
                 ->map(fn (array $item): array => $this->formatTotalsByTurno($item))
                 ->values(),
             'totalsByGroup' => $service->buildTotalsByGroup($rows)->values(),
+            'totalsByUbicacionPadre' => $service->buildTotalsByUbicacionPadre($rows)->values(),
+            'totalsByContratistaPadre' => $service->buildTotalsByContratistaPadre($rows)->values(),
             'rows' => $rows->map(fn (array $row): array => $this->formatRow($row))->values(),
             'statusOptions' => [
                 [

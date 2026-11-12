@@ -5,7 +5,7 @@ namespace App\Services;
 use App\Models\ControlAccessLog;
 use App\Models\MarcacionPacking;
 use App\Models\Turno;
-use Illuminate\Database\Eloquent\Builder;
+use App\Models\ValeAlmuerzo;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 
@@ -42,15 +42,35 @@ class PackingAttendanceReportService
             ->orderBy('nombre')
             ->get();
 
-        $rows = $turnos
-            ->flatMap(fn (Turno $turno): Collection => $this->buildRowsForTurno($turno))
-            ->sortBy([
-                ['turno_inicio', 'asc'],
-                ['status_priority', 'asc'],
-                ['group_label', 'asc'],
-                ['nombre', 'asc'],
-            ])
+        $turnoUbicacionIds = $turnos
+            ->flatMap->ubicaciones
+            ->pluck('id')
+            ->unique()
             ->values();
+
+        $startOfDay = $reportDate->copy();
+        $endOfDay = $reportDate->copy()->endOfDay();
+
+        $appMarks = MarcacionPacking::query()
+            ->with(['trabajador.contratista', 'ubicacion.padre'])
+            ->whereIn('ubicacion_id', $turnoUbicacionIds)
+            ->whereBetween('marcado_en', [$startOfDay, $endOfDay])
+            ->orderBy('marcado_en')
+            ->get();
+
+        $controlLogs = ControlAccessLog::query()
+            ->with(['trabajador.contratista'])
+            ->whereBetween('fecha', [$startOfDay, $endOfDay])
+            ->orderBy('primera_entrada')
+            ->get();
+
+        $valesAlmuerzo = ValeAlmuerzo::query()
+            ->whereDate('emitido_en', $reportDate->toDateString())
+            ->pluck('trabajador_id')
+            ->unique()
+            ->values();
+
+        $rows = $this->buildRows($turnos, $appMarks, $controlLogs, $valesAlmuerzo);
 
         return [
             'date' => $reportDate,
@@ -59,6 +79,8 @@ class PackingAttendanceReportService
             'summary' => $this->buildSummary($rows),
             'totals_by_turno' => $this->buildTotalsByTurno($rows),
             'totals_by_group' => $this->buildTotalsByGroup($rows),
+            'totals_by_ubicacion_padre' => $this->buildTotalsByUbicacionPadre($rows),
+            'totals_by_contratista_padre' => $this->buildTotalsByContratistaPadre($rows),
         ];
     }
 
@@ -100,47 +122,123 @@ class PackingAttendanceReportService
             ->values();
     }
 
-    private function buildRowsForTurno(Turno $turno): Collection
+    public function buildTotalsByUbicacionPadre(Collection $rows): Collection
     {
-        [$turnoInicio, $turnoFin] = $this->resolveTurnoWindow($turno);
+        return $rows
+            ->groupBy('ubicacion_padre')
+            ->map(fn (Collection $group, string $padre): array => [
+                'ubicacion_padre' => $padre ?? 'Sin padre',
+                'total' => $group->count(),
+                self::STATUS_APP_CONTROL => $group->where('status', self::STATUS_APP_CONTROL)->count(),
+                self::STATUS_APP_SIN_CONTROL => $group->where('status', self::STATUS_APP_SIN_CONTROL)->count(),
+                self::STATUS_CONTROL_SIN_APP => $group->where('status', self::STATUS_CONTROL_SIN_APP)->count(),
+                'marcaciones_multiples' => $group->where('has_multiple_marks', true)->count(),
+                'contratistas' => $group->groupBy('contratista')->map(fn (Collection $sub, string $contratista): array => [
+                    'contratista' => $contratista ?? 'Sin contratista',
+                    'total' => $sub->count(),
+                ])->sortByDesc('total')->values()->all(),
+            ])
+            ->sortByDesc('total')
+            ->values();
+    }
 
-        $appMarksByWorker = $this->queryAppMarks($turno, $turnoInicio, $turnoFin)
-            ->groupBy(fn (MarcacionPacking $marcacion): string => (string) $marcacion->trabajador_id);
+    public function buildTotalsByContratistaPadre(Collection $rows): Collection
+    {
+        $grouped = $rows->groupBy(fn (array $row): string => ($row['ubicacion_padre'] ?? 'Sin padre').'|'.($row['contratista'] ?? 'Sin contratista'));
 
-        $controlLogsByWorker = $this->queryControlLogs($turno, $turnoInicio, $turnoFin)
-            ->groupBy(fn (ControlAccessLog $log): string => (string) $log->personal_id);
+        $result = collect();
+
+        foreach ($grouped as $key => $group) {
+            [$padre, $contratista] = explode('|', $key, 2);
+
+            $result->push([
+                'ubicacion_padre' => $padre,
+                'contratista' => $contratista,
+                'total' => $group->count(),
+                self::STATUS_APP_CONTROL => $group->where('status', self::STATUS_APP_CONTROL)->count(),
+                self::STATUS_APP_SIN_CONTROL => $group->where('status', self::STATUS_APP_SIN_CONTROL)->count(),
+                self::STATUS_CONTROL_SIN_APP => $group->where('status', self::STATUS_CONTROL_SIN_APP)->count(),
+            ]);
+        }
+
+        return $result->sortByDesc('total')->values();
+    }
+
+    public function buildRows(Collection $turnos, Collection $appMarks, Collection $controlLogs, Collection $valeTrabajadorIds): Collection
+    {
+        $appMarksByWorker = $appMarks->groupBy(fn (MarcacionPacking $marcacion): string => (string) $marcacion->trabajador_id);
+
+        $controlLogsByWorker = $controlLogs->groupBy(fn (ControlAccessLog $log): string => (string) $log->personal_id);
+
+        $workerIds = $appMarksByWorker->keys()->merge($controlLogsByWorker->keys())->unique()->values();
 
         $rows = collect();
 
-        foreach ($appMarksByWorker as $trabajadorId => $marcaciones) {
-            $controlLogs = $controlLogsByWorker->get((string) $trabajadorId, collect());
+        foreach ($workerIds as $workerId) {
+            $marcaciones = $appMarksByWorker->get($workerId, collect());
+            $logs = $controlLogsByWorker->get($workerId, collect());
 
-            $rows->push($this->buildRow(
-                turno: $turno,
-                turnoInicio: $turnoInicio,
-                turnoFin: $turnoFin,
-                workerId: (string) $trabajadorId,
-                marcaciones: $marcaciones,
-                controlLogs: $controlLogs,
-            ));
-        }
+            $turno = $this->findTurnoByTime($turnos, $this->referenceTime($marcaciones, $logs));
 
-        foreach ($controlLogsByWorker as $personalId => $controlLogs) {
-            if ($appMarksByWorker->has((string) $personalId)) {
+            if (! $turno) {
                 continue;
             }
 
+            [$turnoInicio, $turnoFin] = $this->resolveTurnoWindow($turno);
+
+            $marcacionesEnTurno = $marcaciones->filter(fn (MarcacionPacking $m): bool => $m->marcado_en instanceof Carbon && $m->marcado_en->gte($turnoInicio) && $m->marcado_en->lt($turnoFin))->values();
+
+            $logsEnTurno = $logs->filter(fn (ControlAccessLog $log): bool => $this->controlLogBelongsToWindow($log, $turnoInicio, $turnoFin))->values();
+
+            $trabajador = $marcacionesEnTurno->first()?->trabajador ?? $logsEnTurno->first()?->trabajador;
+
             $rows->push($this->buildRow(
                 turno: $turno,
-                turnoInicio: $turnoInicio,
-                turnoFin: $turnoFin,
-                workerId: (string) $personalId,
-                marcaciones: collect(),
-                controlLogs: $controlLogs,
+                workerId: $workerId,
+                marcaciones: $marcacionesEnTurno,
+                controlLogs: $logsEnTurno,
+                valeAlmuerzo: $valeTrabajadorIds->contains($workerId),
             ));
         }
 
-        return $rows;
+        return $rows
+            ->sortBy([
+                ['turno_inicio', 'asc'],
+                ['status_priority', 'asc'],
+                ['group_label', 'asc'],
+                ['nombre', 'asc'],
+            ])
+            ->values();
+    }
+
+    private function findTurnoByTime(Collection $turnos, Carbon $time): ?Turno
+    {
+        return $turnos->first(function (Turno $turno) use ($time): bool {
+            [$inicio, $fin] = $this->resolveTurnoWindow($turno);
+
+            return $time->gte($inicio) && $time->lt($fin);
+        });
+    }
+
+    private function referenceTime(Collection $marcaciones, Collection $controlLogs): Carbon
+    {
+        $firstMark = $marcaciones->first();
+
+        if ($firstMark && $firstMark->marcado_en instanceof Carbon) {
+            return $firstMark->marcado_en;
+        }
+
+        $firstLog = $controlLogs->first();
+
+        if ($firstLog && $firstLog->primera_entrada instanceof Carbon) {
+            return $firstLog->primera_entrada;
+        }
+
+        if ($firstLog && $firstLog->fecha instanceof Carbon) {
+            return $firstLog->fecha;
+        }
+
+        return now();
     }
 
     /**
@@ -153,54 +251,14 @@ class PackingAttendanceReportService
         $horaInicio = $turno->hora_inicio?->format('H:i:s');
         $horaFin = $turno->hora_fin?->format('H:i:s');
 
-        $inicio = Carbon::parse("{$turnoDate} {$horaInicio}", $timezone);
-        $fin = Carbon::parse("{$turnoDate} {$horaFin}", $timezone);
+        $inicio = Carbon::parse("{$turnoDate} {$horaInicio}", $timezone)->subHour();
+        $fin = Carbon::parse("{$turnoDate} {$horaFin}", $timezone)->addHour();
 
         if ($fin->lte($inicio)) {
             $fin->addDay();
         }
 
         return [$inicio, $fin];
-    }
-
-    private function queryAppMarks(Turno $turno, Carbon $turnoInicio, Carbon $turnoFin): Collection
-    {
-        $ubicacionIds = $turno->ubicaciones->pluck('id')->values();
-
-        return MarcacionPacking::query()
-            ->with(['trabajador.contratista', 'ubicacion.padre'])
-            ->where('marcado_en', '>=', $turnoInicio)
-            ->where('marcado_en', '<', $turnoFin)
-            ->when($ubicacionIds->isNotEmpty(), function (Builder $query) use ($ubicacionIds): void {
-                $query->whereIn('ubicacion_id', $ubicacionIds);
-            })
-            ->orderBy('marcado_en')
-            ->get();
-    }
-
-    private function queryControlLogs(Turno $turno, Carbon $turnoInicio, Carbon $turnoFin): Collection
-    {
-        $turnoDate = $turno->fecha?->toDateString();
-
-        return ControlAccessLog::query()
-            ->with(['trabajador.contratista'])
-            ->where(function (Builder $query) use ($turnoDate, $turnoInicio, $turnoFin): void {
-                $query->whereDate('fecha', $turnoDate)
-                    ->orWhere(function (Builder $innerQuery) use ($turnoInicio, $turnoFin): void {
-                        $innerQuery
-                            ->where('primera_entrada', '>=', $turnoInicio)
-                            ->where('primera_entrada', '<', $turnoFin);
-                    })
-                    ->orWhere(function (Builder $innerQuery) use ($turnoInicio, $turnoFin): void {
-                        $innerQuery
-                            ->where('ultima_salida', '>=', $turnoInicio)
-                            ->where('ultima_salida', '<', $turnoFin);
-                    });
-            })
-            ->orderBy('primera_entrada')
-            ->get()
-            ->filter(fn (ControlAccessLog $log): bool => $this->controlLogBelongsToWindow($log, $turnoInicio, $turnoFin))
-            ->values();
     }
 
     private function controlLogBelongsToWindow(ControlAccessLog $log, Carbon $turnoInicio, Carbon $turnoFin): bool
@@ -219,11 +277,10 @@ class PackingAttendanceReportService
 
     private function buildRow(
         Turno $turno,
-        Carbon $turnoInicio,
-        Carbon $turnoFin,
         string $workerId,
         Collection $marcaciones,
         Collection $controlLogs,
+        bool $valeAlmuerzo,
     ): array {
         $firstMarcacion = $marcaciones->first();
         $firstControlLog = $controlLogs->first();
@@ -239,8 +296,8 @@ class PackingAttendanceReportService
         return [
             'turno_id' => $turno->id,
             'turno_nombre' => $turno->nombre,
-            'turno_inicio' => $turnoInicio,
-            'turno_fin' => $turnoFin,
+            'turno_inicio' => $this->formatDateTime($turno->hora_inicio?->format('Y-m-d H:i:s')),
+            'turno_fin' => $this->formatDateTime($turno->hora_fin?->format('Y-m-d H:i:s')),
             'worker_id' => $workerId,
             'documento' => $trabajador?->documento ?? $workerId,
             'nombre' => $trabajador?->nombre_completo ?? $controlSummary['nombre'] ?? 'Sin nombre',
@@ -260,6 +317,8 @@ class PackingAttendanceReportService
                 ->unique()
                 ->values()
                 ->all(),
+            'ubicacion_padre' => $firstMarcacion?->ubicacion?->padre?->nombre ?? null,
+            'vale_almuerzo' => $valeAlmuerzo,
             'marcaciones' => $this->formatMarcaciones($marcaciones),
         ];
     }
