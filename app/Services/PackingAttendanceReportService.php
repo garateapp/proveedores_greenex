@@ -296,8 +296,8 @@ class PackingAttendanceReportService
         return [
             'turno_id' => $turno->id,
             'turno_nombre' => $turno->nombre,
-            'turno_inicio' => $this->formatDateTime($turno->hora_inicio?->format('Y-m-d H:i:s')),
-            'turno_fin' => $this->formatDateTime($turno->hora_fin?->format('Y-m-d H:i:s')),
+            'turno_inicio' => $turno->hora_inicio?->format('Y-m-d H:i:s'),
+            'turno_fin' => $turno->hora_fin?->format('Y-m-d H:i:s'),
             'worker_id' => $workerId,
             'documento' => $trabajador?->documento ?? $workerId,
             'nombre' => $trabajador?->nombre_completo ?? $controlSummary['nombre'] ?? 'Sin nombre',
