@@ -71,6 +71,15 @@ interface TotalByUbicacionPadre extends Summary {
     contratistas: { contratista: string; total: number }[];
 }
 
+interface TotalByUbicacion {
+    ubicacion: string;
+    ubicacion_padre: string;
+    total: number;
+    app_control: number;
+    app_sin_control: number;
+    control_sin_app: number;
+}
+
 interface TotalByContratistaPadre {
     ubicacion_padre: string;
     contratista: string;
@@ -129,6 +138,7 @@ interface Props {
     totalsByTurno: TotalByTurno[];
     totalsByUbicacionPadre: TotalByUbicacionPadre[];
     totalsByContratistaPadre: TotalByContratistaPadre[];
+    totalsByUbicacion: TotalByUbicacion[];
     rows: ReportRow[];
     statusOptions: StatusOption[];
 }
@@ -540,6 +550,7 @@ export default function PackingAttendanceReportIndex({
     totalsByTurno,
     totalsByUbicacionPadre,
     totalsByContratistaPadre,
+    totalsByUbicacion,
     rows,
     statusOptions,
 }: Props) {
@@ -840,6 +851,46 @@ export default function PackingAttendanceReportIndex({
                                             <TableRow key={`${item.ubicacion_padre}-${item.contratista}`}>
                                                 <TableCell className="font-medium">{item.ubicacion_padre}</TableCell>
                                                 <TableCell>{item.contratista}</TableCell>
+                                                <TableCell>{item.total}</TableCell>
+                                                <TableCell>{item.app_control}</TableCell>
+                                                <TableCell>{item.app_sin_control}</TableCell>
+                                                <TableCell>{item.control_sin_app}</TableCell>
+                                            </TableRow>
+                                        ))
+                                    )}
+                                </TableBody>
+                            </Table>
+                        </CardContent>
+                    </Card>
+
+                    <Card>
+                        <CardHeader>
+                            <CardTitle>Distribución por ubicación / sububicación</CardTitle>
+                        </CardHeader>
+                        <CardContent className="p-0">
+                            <Table>
+                                <TableHeader>
+                                    <TableRow>
+                                        <TableHead>Ubicación</TableHead>
+                                        <TableHead>Sububicación (padre)</TableHead>
+                                        <TableHead>Total</TableHead>
+                                        <TableHead>App + Control</TableHead>
+                                        <TableHead>App sin control</TableHead>
+                                        <TableHead>Control sin app</TableHead>
+                                    </TableRow>
+                                </TableHeader>
+                                <TableBody>
+                                    {totalsByUbicacion.length === 0 ? (
+                                        <TableRow>
+                                            <TableCell colSpan={6} className="py-8 text-center text-muted-foreground">
+                                                Sin registros.
+                                            </TableCell>
+                                        </TableRow>
+                                    ) : (
+                                        totalsByUbicacion.map((item) => (
+                                            <TableRow key={`${item.ubicacion_padre}-${item.ubicacion}`}>
+                                                <TableCell className="font-medium">{item.ubicacion}</TableCell>
+                                                <TableCell>{item.ubicacion_padre}</TableCell>
                                                 <TableCell>{item.total}</TableCell>
                                                 <TableCell>{item.app_control}</TableCell>
                                                 <TableCell>{item.app_sin_control}</TableCell>
