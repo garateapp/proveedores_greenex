@@ -37,6 +37,8 @@ class TicketEmitidoReporteController extends Controller
 
         $totals = $service->totalsByContratista($desde, $hasta);
 
+        $vales = $service->valesPorRango($desde, $hasta, $contratistaFilter);
+
         $contratistas = collect($totals)->pluck('contratista')->all();
 
         if ($detalleRazonSocial !== null && ! in_array($detalleRazonSocial, $contratistas, true)) {
@@ -93,6 +95,7 @@ class TicketEmitidoReporteController extends Controller
             ],
             'total' => (int) collect($totals)->sum('total'),
             'totalsByContratista' => $totals,
+            'vales' => $vales,
             'contratistas' => $contratistas,
             'detalleRut' => $detalle ? [
                 'rut' => $detalle->rut,

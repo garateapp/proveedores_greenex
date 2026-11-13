@@ -153,14 +153,14 @@ const statusStyles: Record<ReportStatus, string> = {
         'border-red-200 bg-red-50 text-red-700 dark:border-red-900 dark:bg-red-950 dark:text-red-300',
 };
 
-const PADRES = ['Unitec 1', 'Unitec 2', 'Unitec 3'];
-
 const padreColor: Record<string, string> = {
     'Unitec 1': '#3b82f6',
     'Unitec 2': '#10b981',
     'Unitec 3': '#f59e0b',
     'Sin padre': '#6b7280',
 };
+
+const padreColorByIndex = ['#3b82f6', '#10b981', '#f59e0b', '#6b7280', '#8b5cf6', '#ec4899'];
 
 const statusColor: Record<string, string> = {
     app_control: '#10b981',
@@ -460,13 +460,16 @@ function PadrePanel({
     datos,
     ubicacionesPadre,
     totalGlobal,
+    index = 0,
 }: {
     padre: string;
     datos: TotalByUbicacionPadre;
     ubicacionesPadre: TotalByUbicacion[];
     totalGlobal: number;
+    index?: number;
 }) {
     const pct = totalGlobal > 0 ? ((datos.total / totalGlobal) * 100).toFixed(0) : '0';
+    const color = padreColor[padre] ?? padreColorByIndex[index % padreColorByIndex.length];
 
     return (
         <Card className="h-full">
@@ -474,7 +477,7 @@ function PadrePanel({
                 <div className="flex items-center gap-2">
                     <div
                         className="h-8 w-8 rounded-full flex items-center justify-center text-white font-bold text-sm"
-                        style={{ backgroundColor: padreColor[padre] ?? '#6b7280' }}
+                        style={{ backgroundColor: color }}
                     >
                         {padre.charAt(0)}
                     </div>
@@ -515,7 +518,7 @@ function PadrePanel({
                     <BarChart
                         title="Personal por ubicación"
                         data={ubicacionesPadre.map((u) => ({ label: u.ubicacion, value: u.total }))}
-                        color={padreColor[padre] ?? '#6b7280'}
+                        color={color}
                     />
                     <DonutChart
                         title="Distribución por estado"
@@ -604,11 +607,21 @@ export default function PackingAttendanceReportIndex({
         [rows],
     );
 
+    const padresUnicos = useMemo(() => {
+        const padres = new Set<string>();
+        totalsByUbicacionPadre.forEach((d) => {
+            if (d.ubicacion_padre) {
+                padres.add(d.ubicacion_padre);
+            }
+        });
+        return Array.from(padres).sort();
+    }, [totalsByUbicacionPadre]);
+
     const padresData = useMemo(() => {
         const map = new Map<string, TotalByUbicacionPadre>();
         totalsByUbicacionPadre.forEach((d) => map.set(d.ubicacion_padre, d));
-        return PADRES.map((p) => map.get(p) ?? { ubicacion_padre: p, total: 0, app_control: 0, app_sin_control: 0, control_sin_app: 0, marcaciones_multiples: 0, contratistas: [] });
-    }, [totalsByUbicacionPadre]);
+        return padresUnicos.map((p) => map.get(p) ?? { ubicacion_padre: p, total: 0, app_control: 0, app_sin_control: 0, control_sin_app: 0, marcaciones_multiples: 0, contratistas: [] });
+    }, [totalsByUbicacionPadre, padresUnicos]);
 
     const ubicacionesPorPadre = useMemo(() => {
         const map = new Map<string, TotalByUbicacion[]>();
@@ -798,9 +811,10 @@ export default function PackingAttendanceReportIndex({
                 </div>
 
                 <div className="grid gap-6 xl:grid-cols-3">
-                    {padresData.map((datos) => (
+                    {padresData.map((datos, index) => (
                         <PadrePanel
                             key={datos.ubicacion_padre}
+                            index={index}
                             padre={datos.ubicacion_padre}
                             datos={datos}
                             ubicacionesPadre={ubicacionesPorPadre.get(datos.ubicacion_padre) ?? []}

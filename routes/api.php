@@ -5,6 +5,7 @@ use App\Http\Controllers\Api\AsistenciaQrController;
 use App\Http\Controllers\Api\ControlAccessLogIngestController;
 use App\Http\Controllers\Api\TarjetaQrMovimientoController;
 use App\Http\Controllers\Api\TicketBatchController;
+use App\Http\Controllers\Api\TicketConsultaController;
 use App\Http\Controllers\Api\TicketRedeemController;
 use App\Http\Controllers\Api\TicketScanController;
 use App\Http\Controllers\Api\TicketValidateController;
@@ -63,5 +64,6 @@ Route::prefix('v1')->group(function () {
         Route::post('/batch', TicketBatchController::class);
         Route::post('/validate', TicketValidateController::class);
         Route::post('/redeem', TicketRedeemController::class);
+        Route::get('/consulta', TicketConsultaController::class);
     });
 });

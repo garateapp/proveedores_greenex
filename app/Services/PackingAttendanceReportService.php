@@ -36,7 +36,7 @@ class PackingAttendanceReportService
 
         $turnos = Turno::query()
             ->with(['ubicaciones.padre'])
-            ->whereDate('fecha', $reportDate->toDateString())
+            ->whereBetween('fecha', [$reportDate->toDateString(), $reportDate->copy()->addDay()->toDateString()])
             ->where('activo', true)
             ->orderBy('hora_inicio')
             ->orderBy('nombre')

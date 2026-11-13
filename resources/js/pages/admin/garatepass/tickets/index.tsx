@@ -34,6 +34,20 @@ interface ContratistaTotal {
     total: number;
 }
 
+interface ValeDetalle {
+    id: number;
+    token: string;
+    trabajador_id: string;
+    trabajador_nombre: string | null;
+    trabajador_rut: string | null;
+    contratista: string | null;
+    centro_costo_id: number | null;
+    centro_costo_codigo: string | null;
+    centro_costo_nombre: string | null;
+    tarjeta_numero_serie: string | null;
+    emitido_en: string;
+}
+
 interface CentroCostoTotal {
     centro_costo_id: number | null;
     codigo: string | null;
@@ -57,6 +71,7 @@ interface Props {
         rows: CentroCostoTotal[];
     } | null;
     centrosCosto: { value: string; label: string }[];
+    vales: ValeDetalle[];
 }
 
 export default function TicketsEmitidosIndex({
@@ -67,6 +82,7 @@ export default function TicketsEmitidosIndex({
     detalleRut,
     detalleCentroCosto,
     centrosCosto,
+    vales,
 }: Props) {
     const [desde, setDesde] = useState(filters.desde);
     const [hasta, setHasta] = useState(filters.hasta);
@@ -349,6 +365,67 @@ export default function TicketsEmitidosIndex({
                     </Card>
                 )}
             </div>
+
+            <Card>
+                <CardHeader>
+                    <CardTitle>Detalle de vales emitidos</CardTitle>
+                    <CardDescription>
+                        {vales.length} vale(s) en el rango seleccionado.
+                    </CardDescription>
+                </CardHeader>
+                <CardContent className="p-0">
+                    <div className="overflow-x-auto">
+                        <Table>
+                            <TableHeader>
+                                <TableRow>
+                                    <TableHead>Fecha / Hora</TableHead>
+                                    <TableHead>Trabajador</TableHead>
+                                    <TableHead>RUT</TableHead>
+                                    <TableHead>Contratista</TableHead>
+                                    <TableHead>Centro de costo</TableHead>
+                                    <TableHead>Tarjeta QR</TableHead>
+                                    <TableHead>Token</TableHead>
+                                </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                                {vales.length === 0 ? (
+                                    <TableRow>
+                                        <TableCell colSpan={7} className="py-8 text-center text-muted-foreground">
+                                            Sin vales emitidos con los filtros aplicados.
+                                        </TableCell>
+                                    </TableRow>
+                                ) : (
+                                    vales.map((vale) => (
+                                        <TableRow key={vale.id}>
+                                            <TableCell className="font-mono text-xs">
+                                                {vale.emitido_en.slice(0, 16)}
+                                            </TableCell>
+                                            <TableCell className="font-medium text-sm">
+                                                {vale.trabajador_nombre ?? '—'}
+                                            </TableCell>
+                                            <TableCell className="text-sm font-mono">
+                                                {vale.trabajador_rut ?? '—'}
+                                            </TableCell>
+                                            <TableCell className="text-sm">
+                                                {vale.contratista ?? '—'}
+                                            </TableCell>
+                                            <TableCell className="text-sm">
+                                                {vale.centro_costo_codigo ?? '(sin centro)'}
+                                            </TableCell>
+                                            <TableCell className="text-sm font-mono">
+                                                {vale.tarjeta_numero_serie ?? '—'}
+                                            </TableCell>
+                                            <TableCell className="text-xs font-mono text-muted-foreground">
+                                                {vale.token.slice(0, 12)}…
+                                            </TableCell>
+                                        </TableRow>
+                                    ))
+                                )}
+                            </TableBody>
+                        </Table>
+                    </div>
+                </CardContent>
+            </Card>
         </>
     );
 }

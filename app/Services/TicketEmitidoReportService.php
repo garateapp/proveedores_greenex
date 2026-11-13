@@ -58,6 +58,51 @@ class TicketEmitidoReportService
     }
 
     /**
+     * @return array<int, array{
+     *     id: int,
+     *     token: string,
+     *     trabajador_id: string,
+     *     trabajador_nombre: string,
+     *     trabajador_rut: string|null,
+     *     contratista: string|null,
+     *     centro_costo_id: int|null,
+     *     centro_costo_codigo: string|null,
+     *     centro_costo_nombre: string|null,
+     *     tarjeta_numero_serie: string|null,
+     *     emitido_en: string
+     * }>
+     */
+    public function valesPorRango(
+        Carbon $desde,
+        Carbon $hasta,
+        ?string $contratista = null,
+    ): array {
+        $query = ValeAlmuerzo::query()
+            ->with(['trabajador.contratista', 'centroCosto', 'tarjetaQr'])
+            ->whereBetween('emitido_en', [$desde, $hasta])
+            ->orderByDesc('emitido_en')
+            ->orderByDesc('id');
+
+        if ($contratista !== null && $contratista !== '') {
+            $query->where('contratista', $contratista);
+        }
+
+        return $query->get()->map(fn (ValeAlmuerzo $vale): array => [
+            'id' => $vale->id,
+            'token' => $vale->token,
+            'trabajador_id' => $vale->trabajador_id,
+            'trabajador_nombre' => $vale->trabajador?->nombre_completo ?? null,
+            'trabajador_rut' => $vale->trabajador?->rut_formateado ?? null,
+            'contratista' => $vale->contratista,
+            'centro_costo_id' => $vale->centro_costo_id,
+            'centro_costo_codigo' => $vale->centroCosto?->codigo ?? null,
+            'centro_costo_nombre' => $vale->centroCosto?->nombre ?? null,
+            'tarjeta_numero_serie' => $vale->tarjetaQr?->numero_serie ?? null,
+            'emitido_en' => $vale->emitido_en->toIso8601String(),
+        ])->all();
+    }
+
+    /**
      * Reporte de un día completo, de 00:00:00 a 23:59:59.
      *
      * @return array{
