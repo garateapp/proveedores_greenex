@@ -759,25 +759,7 @@ export default function PackingAttendanceReportIndex({
                 </Card>
 
                 <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-6">
-                    <KpiCard label="Total personal" value={summary.total} icon={<User />} />
-                    <KpiCard
-                        label="Unitec 1"
-                        value={padresData[0].total}
-                        icon={<BarChart3 className="h-4 w-4" />}
-                        color="blue-600"
-                    />
-                    <KpiCard
-                        label="Unitec 2"
-                        value={padresData[1].total}
-                        icon={<BarChart3 className="h-4 w-4" />}
-                        color="emerald-600"
-                    />
-                    <KpiCard
-                        label="Unitec 3"
-                        value={padresData[2].total}
-                        icon={<BarChart3 className="h-4 w-4" />}
-                        color="amber-600"
-                    />
+                    <KpiCard label="Total personal" value={summary.total} icon={<User />} /><KpiCard label="Unitec 1" value={padresData[0]?.total ?? 0} icon={<BarChart3 className="h-4 w-4" />} color="blue-600" /><KpiCard label="Unitec 2" value={padresData[1]?.total ?? 0} icon={<BarChart3 className="h-4 w-4" />} color="emerald-600" /><KpiCard label="Unitec 3" value={padresData[2]?.total ?? 0} icon={<BarChart3 className="h-4 w-4" />} color="amber-600" />
                     <KpiCard
                         label="App + control"
                         value={summary.app_control}
