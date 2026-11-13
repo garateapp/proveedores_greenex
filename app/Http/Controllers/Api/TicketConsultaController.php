@@ -7,6 +7,7 @@ use App\Http\Requests\Api\TicketConsultaRequest;
 use App\Models\TarjetaQr;
 use App\Models\ValeAlmuerzo;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Log;
 
 class TicketConsultaController extends Controller
 {
@@ -18,6 +19,12 @@ class TicketConsultaController extends Controller
         $tarjeta = TarjetaQr::query()
             ->where('numero_serie', $numeroSerie)
             ->first();
+        Log::info('Consulta de ticket', [
+            'numero_serie' => $numeroSerie,
+            'fecha' => $fecha,
+            'tarjeta_id' => $tarjeta?->id,
+
+        ]);
 
         if ($tarjeta === null) {
             abort(404, 'Tarjeta no registrada.');
@@ -27,7 +34,7 @@ class TicketConsultaController extends Controller
             abort(404, 'Tarjeta bloqueada o dada de baja.');
         }
 
-        $asignacion = $tarjeta->tarjetaQrAsignacionActiva;
+        $asignacion = $tarjeta->asignacionActiva;
 
         if ($asignacion === null) {
             abort(404, 'La tarjeta no tiene una asignación vigente.');
