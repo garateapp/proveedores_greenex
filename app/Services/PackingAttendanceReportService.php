@@ -186,6 +186,29 @@ class PackingAttendanceReportService
         return $result->sortByDesc('total')->values();
     }
 
+    public function buildTotalsByContratistaUbicacion(Collection $rows): Collection
+    {
+        $grouped = $rows->groupBy(fn (array $row): string => ($row['ubicacion'] ?? 'Sin ubicación').'|'.($row['ubicacion_padre'] ?? 'Sin padre').'|'.($row['contratista'] ?? 'Sin contratista'));
+
+        $result = collect();
+
+        foreach ($grouped as $key => $group) {
+            [$ubicacion, $padre, $contratista] = explode('|', $key, 3);
+
+            $result->push([
+                'ubicacion' => $ubicacion,
+                'ubicacion_padre' => $padre,
+                'contratista' => $contratista,
+                'total' => $group->count(),
+                self::STATUS_APP_CONTROL => $group->where('status', self::STATUS_APP_CONTROL)->count(),
+                self::STATUS_APP_SIN_CONTROL => $group->where('status', self::STATUS_APP_SIN_CONTROL)->count(),
+                self::STATUS_CONTROL_SIN_APP => $group->where('status', self::STATUS_CONTROL_SIN_APP)->count(),
+            ]);
+        }
+
+        return $result->sortByDesc('total')->values();
+    }
+
     public function buildRows(Collection $turnos, Collection $appMarks, Collection $controlLogs, Collection $valeTrabajadorIds): Collection
     {
         $appMarksByWorker = $appMarks->groupBy(fn (MarcacionPacking $marcacion): string => (string) $marcacion->trabajador_id);

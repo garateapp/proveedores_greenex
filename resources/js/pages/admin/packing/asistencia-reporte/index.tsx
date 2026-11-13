@@ -80,7 +80,8 @@ interface TotalByUbicacion {
     control_sin_app: number;
 }
 
-interface TotalByContratistaPadre {
+interface TotalByContratistaUbicacion {
+    ubicacion: string;
     ubicacion_padre: string;
     contratista: string;
     total: number;
@@ -137,8 +138,8 @@ interface Props {
     summary: Summary;
     totalsByTurno: TotalByTurno[];
     totalsByUbicacionPadre: TotalByUbicacionPadre[];
-    totalsByContratistaPadre: TotalByContratistaPadre[];
     totalsByUbicacion: TotalByUbicacion[];
+    totalsByContratistaUbicacion: TotalByContratistaUbicacion[];
     rows: ReportRow[];
     statusOptions: StatusOption[];
 }
@@ -457,12 +458,12 @@ function DonutChart({ title, data, total }: DonutChartProps) {
 function PadrePanel({
     padre,
     datos,
-    contratistasPadre,
+    ubicacionesPadre,
     totalGlobal,
 }: {
     padre: string;
     datos: TotalByUbicacionPadre;
-    contratistasPadre: TotalByContratistaPadre[];
+    ubicacionesPadre: TotalByUbicacion[];
     totalGlobal: number;
 }) {
     const pct = totalGlobal > 0 ? ((datos.total / totalGlobal) * 100).toFixed(0) : '0';
@@ -512,8 +513,8 @@ function PadrePanel({
                 </div>
                 <div className="mt-6 grid gap-4 md:grid-cols-2">
                     <BarChart
-                        title="Personal por contratista"
-                        data={contratistasPadre.map((c) => ({ label: c.contratista, value: c.total }))}
+                        title="Personal por ubicación"
+                        data={ubicacionesPadre.map((u) => ({ label: u.ubicacion, value: u.total }))}
                         color={padreColor[padre] ?? '#6b7280'}
                     />
                     <DonutChart
@@ -538,6 +539,38 @@ function PadrePanel({
                         total={datos.total}
                     />
                 </div>
+                <div className="mt-6">
+                    <Table>
+                        <TableHeader>
+                            <TableRow>
+                                <TableHead>Ubicación</TableHead>
+                                <TableHead>Total</TableHead>
+                                <TableHead>App + Control</TableHead>
+                                <TableHead>App sin control</TableHead>
+                                <TableHead>Control sin app</TableHead>
+                            </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                            {ubicacionesPadre.length === 0 ? (
+                                <TableRow>
+                                    <TableCell colSpan={5} className="py-8 text-center text-muted-foreground">
+                                        Sin ubicaciones registradas.
+                                    </TableCell>
+                                </TableRow>
+                            ) : (
+                                ubicacionesPadre.map((u) => (
+                                    <TableRow key={u.ubicacion}>
+                                        <TableCell className="font-medium">{u.ubicacion}</TableCell>
+                                        <TableCell>{u.total}</TableCell>
+                                        <TableCell>{u.app_control}</TableCell>
+                                        <TableCell>{u.app_sin_control}</TableCell>
+                                        <TableCell>{u.control_sin_app}</TableCell>
+                                    </TableRow>
+                                ))
+                            )}
+                        </TableBody>
+                    </Table>
+                </div>
             </CardContent>
         </Card>
     );
@@ -549,8 +582,8 @@ export default function PackingAttendanceReportIndex({
     summary,
     totalsByTurno,
     totalsByUbicacionPadre,
-    totalsByContratistaPadre,
     totalsByUbicacion,
+    totalsByContratistaUbicacion,
     rows,
     statusOptions,
 }: Props) {
@@ -577,15 +610,15 @@ export default function PackingAttendanceReportIndex({
         return PADRES.map((p) => map.get(p) ?? { ubicacion_padre: p, total: 0, app_control: 0, app_sin_control: 0, control_sin_app: 0, marcaciones_multiples: 0, contratistas: [] });
     }, [totalsByUbicacionPadre]);
 
-    const contratistasByPadre = useMemo(() => {
-        const map = new Map<string, TotalByContratistaPadre[]>();
-        totalsByContratistaPadre.forEach((c) => {
-            const list = map.get(c.ubicacion_padre) ?? [];
-            list.push(c);
-            map.set(c.ubicacion_padre, list);
+    const ubicacionesPorPadre = useMemo(() => {
+        const map = new Map<string, TotalByUbicacion[]>();
+        totalsByUbicacion.forEach((u) => {
+            const list = map.get(u.ubicacion_padre) ?? [];
+            list.push(u);
+            map.set(u.ubicacion_padre, list);
         });
         return map;
-    }, [totalsByContratistaPadre]);
+    }, [totalsByUbicacion]);
 
     const handleSearch = () => {
         router.get(
@@ -770,7 +803,7 @@ export default function PackingAttendanceReportIndex({
                             key={datos.ubicacion_padre}
                             padre={datos.ubicacion_padre}
                             datos={datos}
-                            contratistasPadre={contratistasByPadre.get(datos.ubicacion_padre) ?? []}
+                            ubicacionesPadre={ubicacionesPorPadre.get(datos.ubicacion_padre) ?? []}
                             totalGlobal={summary.total}
                         />
                     ))}
@@ -825,13 +858,14 @@ export default function PackingAttendanceReportIndex({
 
                     <Card>
                         <CardHeader>
-                            <CardTitle>Resumen por contratista / padre</CardTitle>
+                            <CardTitle>Distribución por contratista / ubicación / sububicación</CardTitle>
                         </CardHeader>
                         <CardContent className="p-0">
                             <Table>
                                 <TableHeader>
                                     <TableRow>
-                                        <TableHead>Ubicación padre</TableHead>
+                                        <TableHead>Ubicación</TableHead>
+                                        <TableHead>Sububicación (padre)</TableHead>
                                         <TableHead>Contratista</TableHead>
                                         <TableHead>Total</TableHead>
                                         <TableHead>App + Control</TableHead>
@@ -840,16 +874,17 @@ export default function PackingAttendanceReportIndex({
                                     </TableRow>
                                 </TableHeader>
                                 <TableBody>
-                                    {totalsByContratistaPadre.length === 0 ? (
+                                    {totalsByContratistaUbicacion.length === 0 ? (
                                         <TableRow>
-                                            <TableCell colSpan={6} className="py-8 text-center text-muted-foreground">
+                                            <TableCell colSpan={7} className="py-8 text-center text-muted-foreground">
                                                 Sin registros.
                                             </TableCell>
                                         </TableRow>
                                     ) : (
-                                        totalsByContratistaPadre.map((item) => (
-                                            <TableRow key={`${item.ubicacion_padre}-${item.contratista}`}>
-                                                <TableCell className="font-medium">{item.ubicacion_padre}</TableCell>
+                                        totalsByContratistaUbicacion.map((item) => (
+                                            <TableRow key={`${item.ubicacion_padre}-${item.ubicacion}-${item.contratista}`}>
+                                                <TableCell className="font-medium">{item.ubicacion}</TableCell>
+                                                <TableCell>{item.ubicacion_padre}</TableCell>
                                                 <TableCell>{item.contratista}</TableCell>
                                                 <TableCell>{item.total}</TableCell>
                                                 <TableCell>{item.app_control}</TableCell>

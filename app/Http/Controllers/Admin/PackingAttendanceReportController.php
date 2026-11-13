@@ -50,6 +50,7 @@ class PackingAttendanceReportController extends Controller
             'totalsByUbicacionPadre' => $service->buildTotalsByUbicacionPadre($rows)->values(),
             'totalsByContratistaPadre' => $service->buildTotalsByContratistaPadre($rows)->values(),
             'totalsByUbicacion' => $service->buildTotalsByUbicacion($rows)->values(),
+            'totalsByContratistaUbicacion' => $service->buildTotalsByContratistaUbicacion($rows)->values(),
             'rows' => $rows->map(fn (array $row): array => $this->formatRow($row))->values(),
             'statusOptions' => [
                 [
