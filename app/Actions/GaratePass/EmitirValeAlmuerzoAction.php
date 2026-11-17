@@ -5,7 +5,6 @@ namespace App\Actions\GaratePass;
 use App\Enums\GaratePassErrorCode;
 use App\Enums\PerfilTarjetaQr;
 use App\Exceptions\GaratePassApiException;
-use App\Models\MarcacionPacking;
 use App\Models\TarjetaQr;
 use App\Models\TarjetaQrAsignacion;
 use App\Models\Trabajador;
@@ -25,15 +24,6 @@ use Illuminate\Support\Facades\DB;
  */
 class EmitirValeAlmuerzoAction
 {
-    /**
-     * Contratista al que se le permite imprimir múltiples tickets en un solo
-     * escaneo, siempre que su tarjeta sea multiticket.
-     */
-    private const RUT_CONTRATISTA_MULTITICKET = '76067861-9';
-
-    /**
-     * @return array{profile: string, ticket?: array<string, mixed>, admin?: array<string, mixed>}
-     */
     public function execute(string $codigoQr): array
     {
         $tarjeta = TarjetaQr::query()
@@ -113,29 +103,6 @@ class EmitirValeAlmuerzoAction
 
         // 1. Determinar cuántos vales se deben emitir.
         $cantidadValesEmitir = 1;
-
-        $puedeEmitirMultiples = $tarjeta->multiticket
-            && $trabajador->contratista?->rut === self::RUT_CONTRATISTA_MULTITICKET;
-
-        if ($puedeEmitirMultiples) {
-            // Multiticket del contratista especial: un vale por cada asistencia del día.
-            $asistenciasRecientes = MarcacionPacking::query()
-                ->whereHas(
-                    'trabajador.contratista',
-                    fn ($query) => $query->where('rut', $trabajador->contratista?->rut),
-                )
-                ->whereDate('marcado_en', today())
-                ->whereTime('marcado_en', '<', now())
-                ->distinct('trabajador_id')
-                ->count('trabajador_id');
-
-            if ($asistenciasRecientes > 0) {
-                $cantidadValesEmitir = $asistenciasRecientes;
-            }
-        } elseif ($esExtraTicket) {
-            // Extra ticket: exactamente un vale por día.
-            $cantidadValesEmitir = 1;
-        }
 
         // 2. Datos base que se repiten en todos los vales
         $dataValeBase = [
