@@ -103,9 +103,28 @@ class TrabajadorImportController extends Controller
                     }
 
                     // Check if already exists
-                    if (Trabajador::find($row['id'])) {
-                        $errors[] = "Fila {$rowNumber}: Trabajador ya existe (RUT: {$row['documento']})";
-                        $skipped++;
+                    $existing = Trabajador::find($row['id']);
+
+                    if ($existing) {
+                        if ($existing->contratista_id !== $contratistaId) {
+                            $existing->update(['contratista_id' => $contratistaId]);
+                        }
+
+                        $trabajador = $existing;
+
+                        if ($faenaId) {
+                            $trabajador->faenas()->attach((int) $faenaId, [
+                                'fecha_asignacion' => now(),
+                                'fecha_desasignacion' => null,
+                            ]);
+                        }
+
+                        // Assign tarjeta QR if column exists and value present
+                        if ($hasQrColumn && ! empty($row['codigo_qr'])) {
+                            $this->assignTarjetaQr($trabajador, $row['codigo_qr'], $user->id, $rowNumber, $tarjetaQrErrors);
+                        }
+
+                        $imported++;
 
                         continue;
                     }
@@ -206,14 +225,11 @@ class TrabajadorImportController extends Controller
         $asignacionActiva = $tarjeta->asignacionActiva;
 
         if ($asignacionActiva) {
-            $tarjetaQrErrors[] = [
-                'fila' => $rowNumber,
-                'codigo_qr' => $codigoQr,
-                'trabajador' => $trabajador->id,
-                'motivo' => 'Tarjeta QR ya asignada a otro trabajador',
-            ];
-
-            return;
+            $asignacionActiva->update([
+                'desasignada_en' => now(),
+                'desasignada_por' => $asignadaPor,
+                'observaciones' => 'Reasignada por importación masiva de trabajadores',
+            ]);
         }
 
         TarjetaQrAsignacion::create([
