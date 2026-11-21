@@ -113,10 +113,10 @@ class TrabajadorImportController extends Controller
                         $trabajador = $existing;
 
                         if ($faenaId) {
-                            $trabajador->faenas()->attach((int) $faenaId, [
+                            $trabajador->faenas()->syncWithoutDetaching([(int) $faenaId => [
                                 'fecha_asignacion' => now(),
                                 'fecha_desasignacion' => null,
-                            ]);
+                            ]]);
                         }
 
                         // Assign tarjeta QR if column exists and value present
